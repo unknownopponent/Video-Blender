@@ -3,7 +3,7 @@
 Command line video processing tool, lossless weighted frame blending 
 
 ## How to use
-
+```
 file options :
 	-i file 	 input file
 	-o file 	 output file
@@ -18,7 +18,7 @@ weights options :
 "codec options :
 	-hd dec 	 set hardware decoder possible values:Intel,Nvidia
 	-he enc 	 set hardware encoder possible values:Intel,Nvidia,AMD
-
+```
 ## Why
 
 Streaming platforms and people's monitors are often maxed to 60 fps. If you have videos with more than 60 fps, you have two choices :
@@ -41,6 +41,6 @@ To achieve frame blending you can use editing softwares but you can't configure 
 
 Some stuff related to frame blending : 
 
-[Editing Software Frame Blending Weights Estimation](https://github.com/unknownopponent/Editing-Software-Frame-Blending-Weights-Estimation) : github repo about editing software frame blending
-[my yt channel](https://www.youtube.com/channel/UCGeOcmuVh36YwHy_fvXrfng/videos) : showcase frame blending
-[Couleur tweak tips](https://discord.gg/ctt) : video quality/frame blending discord server (and much more)
+ * [Editing Software Frame Blending Weights Estimation](https://github.com/unknownopponent/Editing-Software-Frame-Blending-Weights-Estimation) : github repo about editing software frame blending
+ * [my yt channel](https://www.youtube.com/channel/UCGeOcmuVh36YwHy_fvXrfng/videos) : showcase frame blending
+ * [Couleur tweak tips](https://discord.gg/ctt) : video quality/frame blending discord server (and much more)
