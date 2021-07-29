@@ -15,6 +15,8 @@ typedef struct Settings
 	int* weights;
 
 	int threads;
+
+	char opengl;
 } Settings;
 
 int set_default_values(Settings* settings);

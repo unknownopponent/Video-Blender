@@ -1,0 +1,12 @@
+
+layout(rgba32f, binding = 0) uniform image2D img_output;
+
+uniform float total_weight;
+
+void main()
+{
+	ivec2 coords = ivec2(gl_GlobalInvocationID);
+	vec4 out_pixel = imageLoad(img_output, coords);
+	out_pixel = vec4(out_pixel.x / total_weight, out_pixel.y / total_weight, out_pixel.z / total_weight, out_pixel.w / total_weight);
+	imageStore(img_output, coords, out_pixel);
+}

@@ -6,9 +6,9 @@
 #include "Convert.h"
 #include "utils/Queue.h"
 
-#include "windows.h"
+#include "OpenGL.h"
 
-#include <assert.h>
+#include "windows.h"
 
 typedef struct Thread_Parameters
 {
@@ -138,6 +138,8 @@ int main(int argc, char** args)
         return 1;
     }
 
+    printf("options parsed\n");
+
     CodingContext input = { 0 };
     if (open_input(&input, &settings))
     {
@@ -189,6 +191,75 @@ int main(int argc, char** args)
     printf(output.codec_ctx->codec->long_name);
     printf(" decoder\n");
 
+    Programs programs;
+    float* gl_frame = 0;
+    unsigned int gl_count;
+    unsigned int gl_size;
+    float total_weights = 0.0f;
+    RGBFrame* rgb_result = 0;
+    AVFrame* gl_out_frame = 0;
+    struct SwsContext* rgb_to_yuv = 0;
+
+    if (settings.opengl)
+    {
+        if (set_up_opengl_context(&programs, in_frame->width, in_frame->height))
+        {
+            printf("can't set up opengl\n");
+            return 1;
+        }
+        gl_count = in_frame->width * in_frame->height * 3;
+        gl_size = gl_count * sizeof(float);
+        gl_frame = malloc(gl_size);
+        if (!gl_frame)
+        {
+            printf("can't malloc\n");
+            return 1;
+        }
+        for (int i = 0; i < settings.w_count; i++)
+        {
+            total_weights += (float)settings.weights[i];
+        }
+
+        gl_out_frame = av_frame_alloc();
+        if (!gl_out_frame)
+        {
+            printf("can't av_frame_alloc\n");
+            return 8;
+        }
+        gl_out_frame->data[0] = malloc(gl_count * sizeof(unsigned char));
+        gl_out_frame->data[1] = gl_out_frame->data[0] + in_frame->width * in_frame->height;
+        gl_out_frame->data[2] = gl_out_frame->data[0] + in_frame->width * in_frame->height * 2;
+        gl_out_frame->data[3] = 0;
+        gl_out_frame->linesize[0] = in_frame->width;
+        gl_out_frame->linesize[1] = in_frame->width;
+        gl_out_frame->linesize[2] = in_frame->width;
+        gl_out_frame->linesize[4] = 0;
+        gl_out_frame->format = AV_PIX_FMT_YUV444P;
+        gl_out_frame->width = in_frame->width;
+        gl_out_frame->height = in_frame->height;
+
+        rgb_to_yuv =
+            sws_getContext(in_frame->width,
+                in_frame->height,
+                AV_PIX_FMT_RGB24,
+                in_frame->width,
+                in_frame->height,
+                output.codec_ctx->pix_fmt,
+                SWS_BILINEAR,
+                NULL, NULL, NULL);
+        if (!rgb_to_yuv)
+        {
+            printf("can't sws_getContext\n");
+            return 7;
+        }
+
+        if (alloc_RGBFrame(&rgb_result, 0, in_frame->width, in_frame->height))
+        {
+            printf("can't alloc rgbframe\n");
+            return 1;
+        }
+    }
+
     struct SwsContext* yuv_to_rgb =
         sws_getContext(in_frame->width,
             in_frame->height,
@@ -218,6 +289,8 @@ int main(int argc, char** args)
         in_frame->height,
         rgb->data,
         rgb->linesize);
+
+    //test(rgb, in_frame->width, in_frame->height);
 
     Queue q;
     init(&q, sizeof(RGBFrame*));
@@ -290,6 +363,98 @@ int main(int argc, char** args)
         {
             if (nb_frame_read >= nb_frame_target)
             {
+                if (settings.opengl)
+                {
+                    //initialize
+                    //for each frame
+                    //  convert frame to float frame
+                    //  set uniform weight
+                    //  add
+                    //set uniform total weights
+                    //finish
+                    //download frame
+                    //encode frame
+                    //free frames
+
+
+
+                    GLenum err;
+
+                    glUseProgram(programs.init);
+                    glDispatchCompute(programs.nb_x, programs.nb_y, 1);
+                    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+                    for (int i = 0; i < settings.w_count; i++)
+                    {
+                        get(&q, i, &rgb);
+                        for (int j = 0; j < gl_count; j++)
+                            gl_frame[j] = (float)rgb->data[0][j];
+                        glUseProgram(programs.add);
+                        glUniform1f(programs.w_location, (float)settings.weights[i]);
+                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, in_frame->width, in_frame->height, 0, GL_RGB, GL_FLOAT, gl_frame);
+                        glDispatchCompute(programs.nb_x, programs.nb_y, 1);
+                        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+                    }
+
+                    glUseProgram(programs.finish);
+                    glUniform1f(programs.tw_location, total_weights);
+                    glDispatchCompute(programs.nb_x, programs.nb_y, 1);
+                    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
+                    //glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, gl_frame);
+                    glGetTextureImage(programs.texture,
+                        0,
+                        GL_RGB,
+                        GL_FLOAT,
+                        gl_size,
+                        gl_frame);
+
+                    while ((err = glGetError()) != GL_NO_ERROR)
+                    {
+                        printf("%d\n", err);
+                    }
+
+                    for (int j = 0; j < gl_count; j++)
+                        rgb_result->data[0][j] = (unsigned char)gl_frame[j];
+
+                    sws_scale(rgb_to_yuv,
+                        rgb_result->data,
+                        rgb_result->linesize,
+                        0,
+                        in_frame->height,
+                        gl_out_frame->data,
+                        gl_out_frame->linesize);
+
+                    gl_out_frame->pts = (float)last_frames_id * pts_step;
+
+                    if (encode(&output, gl_out_frame))
+                    {
+                        printf("encoding error\n");
+                    }
+
+                    int tmp = nb_frame_read - oldest_read_frame_id - settings.w_count;
+                    for (int i = 0; i < tmp; i++)
+                    {
+                        if (front(&q, &rgb))
+                        {
+                            printf("can't front on q\n");
+                            return 1;
+                        }
+                        if (qremove(&q))
+                        {
+                            printf("can't remove on q\n");
+                            return 1;
+                        }
+                        free_RGBFrame(rgb);
+                        oldest_read_frame_id += 1;
+                    }
+
+                    last_frames_id += 1;
+                    nb_thread_launched += 1;
+                    nb_frame_target = -1;
+                    continue;
+                }
+
                 while ((nb_thread_launched - nb_frame_created) < threads.size || threads.size >= settings.threads)
                 {
                     if (front(&threads, &tmp_handle))
@@ -318,7 +483,7 @@ int main(int argc, char** args)
                     free(tmp_params);
                 }
 
-                if (settings.threads > 1 && params.size > 0)
+                if ( params.size > 0)
                 {
                     if (front(&params, &tmp_params))
                     {
@@ -351,7 +516,6 @@ int main(int argc, char** args)
                         if (front(&q, &rgb))
                         {
                             printf("can't front on q\n");
-                            assert(0);
                             return 1;
                         }
                         if (qremove(&q))
@@ -485,3 +649,9 @@ int main(int argc, char** args)
 
     return 0;
 }
+
+//init settings
+//init input output
+//read first frame
+//init opengl
+//
