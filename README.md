@@ -11,27 +11,27 @@ blend 3 frames
 
 ### Doc
 
-file options :
-`-i file` input file
+file options :<br/>
+`-i file` input file<br/>
 `-o file` output file
 
-output framerate options :
-`-fps int` set timebase with framerate
+output framerate options :<br/>
+`-fps int` set timebase with framerate<br/>
 `-timebase num/den` set timebase ex:-timebase 1/60
 
-weights options :
-`-weights int` set the number of frames blended with weights 1
+weights options :<br/>
+`-weights int` set the number of frames blended with weights 1<br/>
 `-weights ints` set weights ex:-weights 1 1
 
-processing options :
-`-threads int` set number of threads for blending
+processing options :<br/>
+`-threads int` set number of threads for blending<br/>
 `-opengl` use opengl to blend frames
 
-codec options :
-`-decoder codec` set decoder, possible values:h264,h265
-`-preset preset` set decoder preset
-`-crf int` set quality
-`-hd dec` set hardware decoder, possible values:Intel,Nvidia
+codec options :<br/>
+`-decoder codec` set decoder, possible values:h264,h265<br/>
+`-preset preset` set decoder preset<br/>
+`-crf int` set quality<br/>
+`-hd dec` set hardware decoder, possible values:Intel,Nvidia<br/>
 `-he enc` set hardware encoder, possible values:Intel,Nvidia,AMD
 
 ## Why
