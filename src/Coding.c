@@ -234,12 +234,6 @@ int open_output(CodingContext* in_ctx, CodingContext* out_ctx, Settings* setting
     }
 
     char codec_open = 0;
-    enum AVPixelFormat format = get_lossless_format(in_ctx->codec_ctx->bits_per_raw_sample);
-    if (!format)
-    {
-        printf("pixel format not supported for encoding\n");
-        return 1;
-    }
 
     const AVCodec* c = NULL;
 
@@ -252,21 +246,20 @@ int open_output(CodingContext* in_ctx, CodingContext* out_ctx, Settings* setting
             if (c == NULL)
                 break;
 
-            if (c->id == AV_CODEC_ID_H265)
+            if (c->id == settings->decoder)
             {
                 if (av_codec_is_encoder(c))
                 {
                     if (strstr(c->long_name, settings->hardware_encoding))
                     {
-                        if (contains(format, c->pix_fmts))
+                        if (contains(settings->pix_fmt, c->pix_fmts))
                         {
                             if (open_encoder(
                                 out_ctx,
                                 in_ctx->codec_ctx,
                                 c,
-                                format,
-                                settings->num,
-                                settings->den))
+                                settings,
+                                NULL))
                             {
                                 printf("can't open hardware decoder\n");
                                 return;
@@ -285,21 +278,26 @@ int open_output(CodingContext* in_ctx, CodingContext* out_ctx, Settings* setting
         if (settings->hardware_encoding)
             printf("did not found compatible hardware encoder\n");
 
-        c = avcodec_find_encoder(AV_CODEC_ID_H265);
+        c = avcodec_find_encoder(settings->decoder);
 
-        if (!contains(format, c->pix_fmts))
+        if (!contains(settings->pix_fmt, c->pix_fmts))
         {
             printf("did not found compatible software decoder\n");
             return 1;
         }
 
+        AVDictionary* codec_options = { 0 };
+        av_dict_set(&codec_options, "preset", settings->preset, 0);
+        av_dict_set(&codec_options, "crf", settings->crf, AV_OPT_SEARCH_CHILDREN);
+
+        printf("test\n");
+
         if (open_encoder(
             out_ctx,
             in_ctx->codec_ctx,
             c,
-            format,
-            settings->num,
-            settings->den))
+            settings,
+            codec_options))
         {
             printf("can't open hardware decoder\n");
             return 1;
@@ -325,7 +323,7 @@ int open_output(CodingContext* in_ctx, CodingContext* out_ctx, Settings* setting
     return 0;
 }
 
-int open_encoder(CodingContext* out_ctx, AVCodecContext* dec_ctx, AVCodec* codec, enum AVPixelFormat format, int num, int den)
+int open_encoder(CodingContext* out_ctx, AVCodecContext* dec_ctx, AVCodec* codec, Settings* settings, AVDictionary* codec_options)
 {
     out_ctx->codec_ctx = avcodec_alloc_context3(codec);
     if (!out_ctx->codec_ctx)
@@ -338,14 +336,14 @@ int open_encoder(CodingContext* out_ctx, AVCodecContext* dec_ctx, AVCodec* codec
     out_ctx->codec_ctx->height = dec_ctx->height;
     out_ctx->codec_ctx->width = dec_ctx->width;
     out_ctx->codec_ctx->sample_aspect_ratio = dec_ctx->sample_aspect_ratio;
-    out_ctx->codec_ctx->pix_fmt = AV_PIX_FMT_YUV444P;
-    AVRational timebase = (AVRational){ num,den };
+    out_ctx->codec_ctx->pix_fmt = settings->pix_fmt;
+    AVRational timebase = (AVRational){ settings->num,settings->den };
     out_ctx->codec_ctx->time_base = timebase;
 
     if (out_ctx->format_ctx->oformat->flags & AVFMT_GLOBALHEADER)
         out_ctx->codec_ctx->flags |= AVFMT_GLOBALHEADER;
 
-    if (avcodec_open2(out_ctx->codec_ctx, codec, NULL) < 0)
+    if (avcodec_open2(out_ctx->codec_ctx, codec, &codec_options) < 0)
     {
         printf("can't avcodec_open2\n");
         return 1;

@@ -1,5 +1,8 @@
 #pragma once
 
+#include "libavcodec/codec_id.h"
+
+
 typedef struct Settings
 {
 	char* input_file;
@@ -17,6 +20,12 @@ typedef struct Settings
 	int threads;
 
 	char opengl;
+
+	enum AVCodecID decoder;
+	char* preset;
+	char* crf;
+	enum AVPixelFormat pix_fmt;
+
 } Settings;
 
 int set_default_values(Settings* settings);

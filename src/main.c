@@ -37,7 +37,6 @@ typedef struct Thread_Parameters
     HDC dc;
     HGLRC gl_ctx;
 
-
 } t_param;
 
 void encode_thread(t_param* params)

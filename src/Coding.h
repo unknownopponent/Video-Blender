@@ -2,6 +2,7 @@
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include "libavutil/opt.h"
 
 #include "Settings.h"
 
@@ -23,7 +24,7 @@ int read(CodingContext* in_ctx, AVFrame* frame);
 enum AVPixelFormat get_lossless_format(int bit_per_channel);
 
 int open_output(CodingContext* in_ctx, CodingContext* out_ctx, Settings* settings);
-int open_encoder(CodingContext* out_ctx, AVCodecContext* dec_ctx, AVCodec* codec, enum AVPixelFormat format, int num, int den);
+int open_encoder(CodingContext* out_ctx, AVCodecContext* dec_ctx, AVCodec* codec, Settings* settings, AVDictionary* codec_options);
 
 int encode(CodingContext* out_ctx, AVFrame* frame);
 

@@ -34,8 +34,19 @@ int set_default_values(Settings* settings)
 			settings->weights[i] = 1;
 		}
 	}
-	settings->threads = 1;
-	settings->opengl = 1;
+	if (settings->opengl)
+		settings->threads = 1;
+	if (!settings->threads)
+		settings->threads = get_available_threads();
+	if (!settings->decoder)
+		settings->decoder = AV_CODEC_ID_H264;
+	if (!settings->preset)
+		settings->preset = "ultrafast";
+	if (!settings->crf)
+		settings->crf = "0";
+	if (!settings->pix_fmt)
+		settings->pix_fmt = AV_PIX_FMT_YUV444P;
+
 	return 0;
 }
 

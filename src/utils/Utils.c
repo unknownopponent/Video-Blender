@@ -80,3 +80,11 @@ int char_index_in_str(char* str, char c, int* index)
 
 	return 1;
 }
+
+int get_available_threads()
+{
+	SYSTEM_INFO infos;
+	GetSystemInfo(&infos);
+	printf("using %d threads\n", infos.dwNumberOfProcessors);
+	return infos.dwNumberOfProcessors;
+}
