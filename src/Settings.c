@@ -226,6 +226,28 @@ int parse(Settings* settings, int argc, char** args)
 				if (i+1 >= argc)
 					break;
 			}
+			if (q.size == 1)
+			{
+				front(&q, &value);
+				if (value < 2)
+				{
+					printf("need at least 2 weights\n");
+					return 1;
+				}
+				settings->w_count = value;
+				settings->weights = malloc(sizeof(int) * value);
+				if (!settings->weights)
+				{
+					printf("can't malloc\n");
+					return 1;
+				}
+				for (int i = 0; i < value; i++)
+				{
+					settings->weights[i] = 1;
+				}
+				qremove(&q);
+				continue;
+			}
 			if (q.size < 2)
 			{
 				printf("need at least 2 weights\n");
@@ -249,7 +271,72 @@ int parse(Settings* settings, int argc, char** args)
 			}
 			continue;
 		}
-
+		if (!strcmp(&args[i][1], "threads"))
+		{
+			i += 1;
+			if (i >= argc)
+			{
+				printf("-threads needs an argument\n");
+				return 1;
+			}
+			if (cstr_to_int(args[i], &settings->threads))
+			{
+				printf("invalid thread count\n");
+				return 1;
+			}
+			if (settings->threads < 1)
+			{
+				printf("it needs at least one thread\n");
+				settings->threads = 1;
+			}
+			continue;
+		}
+		if (!strcmp(&args[i][1], "opengl"))
+		{
+			settings->opengl = 1;
+			continue;
+		}
+		if (!strcmp(&args[i][1], "decoder"))
+		{
+			i += 1;
+			if (i >= argc)
+			{
+				printf("-decoder needs an argument\n");
+				return 1;
+			}
+			if (!strcmp(args[i], "h264"))
+			{
+				settings->decoder = AV_CODEC_ID_H264;
+				continue;
+			}
+			if (!strcmp(args[i], "h265"))
+			{
+				settings->decoder = AV_CODEC_ID_H265;
+				continue;
+			}
+			printf("invalid decoder\n");
+			return 1;
+		}
+		if (!strcmp(&args[i][1], "preset"))
+		{
+			i += 1;
+			if (i >= argc)
+			{
+				printf("-preset needs an argument\n");
+				return 1;
+			}
+			settings->preset = args[i];
+		}
+		if (!strcmp(&args[i][1], "crf"))
+		{
+			i += 1;
+			if (i >= argc)
+			{
+				printf("-crf needs an argument\n");
+				return 1;
+			}
+			settings->crf = args[i];
+		}
 		printf("unknown argument : %s\n", args[i]);
 		return 1;
 	}
@@ -269,16 +356,24 @@ void print_usage()
 		"\t-i file \t input file\n"
 		"\t-o file \t output file\n"
 		"\n"
-		"framerate options :\n"
+		"output framerate options :\n"
 		"\t-fps int \t set timebase with framerate\n"
 		"\t-timebase num/den \t set timebase ex:-timebase 1/60\n"
 		"\n"
 		"weights options :\n"
+		"\t-weights int \t set the number of frames blended with weights 1\n"
 		"\t-weights ints \t set weights ex:-weights 1 1\n"
 		"\n"
+		"processing options :\n"
+		"\t-threads int \t set number of threads for blending\n"
+		"\t-opengl \t use opengl to blend frames\n"
+		"\n"
 		"codec options :\n"
-		"\t-hd dec \t set hardware decoder possible values:Intel,Nvidia\n"
-		"\t-he enc \t set hardware encoder possible values:Intel,Nvidia,AMD\n"
+		"\t-decoder codec \t set decoder, possible values:h264,h265\n"
+		"\t-preset preset \t set decoder preset\n"
+		"\t-crf int \t set quality\n"
+		"\t-hd dec \t set hardware decoder, possible values:Intel,Nvidia\n"
+		"\t-he enc \t set hardware encoder, possible values:Intel,Nvidia,AMD\n"
 		"\n"
 	);
 }

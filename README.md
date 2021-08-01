@@ -3,22 +3,37 @@
 Command line video processing tool, lossless weighted frame blending 
 
 ## How to use
-```
-file options :
-	-i file 	 input file
-	-o file 	 output file
 
-framerate options :
-	-fps int 	 set timebase with framerate
-	-timebase num/den 	 set timebase ex:-timebase 1/60
+### Exemple
+
+blend 3 frames
+ * `vblender.exe -i video.mp4 -weights 3`
+
+### Doc
+
+file options :
+`-i file` input file
+`-o file` output file
+
+output framerate options :
+`-fps int` set timebase with framerate
+`-timebase num/den` set timebase ex:-timebase 1/60
 
 weights options :
-	-weights ints 	 set weights ex:-weights 1 1
+`-weights int` set the number of frames blended with weights 1
+`-weights ints` set weights ex:-weights 1 1
 
-"codec options :
-	-hd dec 	 set hardware decoder possible values:Intel,Nvidia
-	-he enc 	 set hardware encoder possible values:Intel,Nvidia,AMD
-```
+processing options :
+`-threads int` set number of threads for blending
+`-opengl` use opengl to blend frames
+
+codec options :
+`-decoder codec` set decoder, possible values:h264,h265
+`-preset preset` set decoder preset
+`-crf int` set quality
+`-hd dec` set hardware decoder, possible values:Intel,Nvidia
+`-he enc` set hardware encoder, possible values:Intel,Nvidia,AMD
+
 ## Why
 
 Streaming platforms and people's monitors are often maxed to 60 fps. If you have videos with more than 60 fps, you have two choices :
@@ -30,8 +45,6 @@ To achieve frame blending you can use editing softwares but you can't configure 
 ## Todo
 
  * clean the code
- * hardware acceleration using graphic api
- * encoding configuration
  * more than 8 bit colors support
  * real number weights
  * remux other input streams
