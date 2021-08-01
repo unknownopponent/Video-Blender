@@ -5,6 +5,7 @@
 #include "Coding.h"
 #include "Convert.h"
 #include "utils/Queue.h"
+#include "utils/Stock.h"
 
 #include "OpenGL.h"
 
@@ -12,6 +13,8 @@
 
 typedef struct Thread_Parameters
 {
+    HANDLE thread;
+
     RGBFrame** in_frames;
     int* weigths;
     int nb;
@@ -21,6 +24,11 @@ typedef struct Thread_Parameters
     int pts;
 
     int frame_id;
+
+    RGBFrame* rgb_result;
+    struct SwsContext* rgb_to_yuv;
+    AVFrame* out_frame;
+
 } t_param;
 
 void blend_and_encode(t_param* params)
@@ -28,64 +36,24 @@ void blend_and_encode(t_param* params)
     int width = params->output->codec_ctx->width;
     int height = params->output->codec_ctx->height;
     int frame_size = width * height * 3;
-    RGBFrame* rgb_result;
-    if (alloc_RGBFrame(&rgb_result, *params->nb_frame_created, width, height))
-    {
-        ;
-    }
-    blend(rgb_result, params->in_frames, params->weigths, params->nb, frame_size);
-    struct SwsContext* rgb_to_yuv =
-        sws_getContext(width,
-            height,
-            AV_PIX_FMT_RGB24,
-            width,
-            height,
-            params->output->codec_ctx->pix_fmt,
-            SWS_BILINEAR,
-            NULL, NULL, NULL);
-    if (!rgb_to_yuv)
-    {
-        printf("can't sws_getContext\n");
-        return 7;
-    }
-    AVFrame* out_frame = av_frame_alloc();
-    if (!out_frame)
-    {
-        printf("can't av_frame_alloc\n");
-        return 8;
-    }
-    out_frame->data[0] = malloc(frame_size);
-    out_frame->data[1] = out_frame->data[0] + width * height;
-    out_frame->data[2] = out_frame->data[0] + width * height * 2;
-    out_frame->data[3] = 0;
-    out_frame->linesize[0] = width;
-    out_frame->linesize[1] = width;
-    out_frame->linesize[2] = width;
-    out_frame->linesize[4] = 0;
-    out_frame->format = AV_PIX_FMT_YUV444P;
-    out_frame->width = width;
-    out_frame->height = height;
-    out_frame->pts = params->pts;
-    sws_scale(rgb_to_yuv,
-        rgb_result->data,
-        rgb_result->linesize,
+    blend(params->rgb_result, params->in_frames, params->weigths, params->nb, frame_size);
+    params->out_frame->pts = params->pts;
+    sws_scale(params->rgb_to_yuv,
+        params->rgb_result->data,
+        params->rgb_result->linesize,
         0,
         height,
-        out_frame->data,
-        out_frame->linesize);
+        params->out_frame->data,
+        params->out_frame->linesize);
 
     while (*params->nb_frame_created != params->frame_id)
         Sleep(1);
 
-    if (encode(params->output, out_frame))
+    if (encode(params->output, params->out_frame))
     {
         printf("encoding error\n");
     }
 
-    free_RGBFrame(rgb_result);
-    sws_freeContext(rgb_to_yuv);
-    free(out_frame->data[0]);
-    av_frame_free(&out_frame);
     printf("%d frames\r", params->frame_id);
     *params->nb_frame_created += 1;
 }
@@ -127,6 +95,35 @@ int blend(RGBFrame* result, RGBFrame** in_frames, int* weights, int nb, int data
 
     free(tmp_frame);
     return 0;
+}
+
+int mainc()
+{
+    Stock stock;
+    sinit(&stock, sizeof(float*));
+    int* f = 0;
+    int index;
+    while (f<5)
+    {
+        if (sget_available(&stock, &f, &index)) //pas de libre
+        {
+            sadd(&stock, f);
+        }
+        else
+        {
+            printf("");
+        }
+        f += 1;
+    }
+    sset(&stock, 1, 0);
+    if (sget_available(&stock, &f, &index))
+    {
+        printf("");
+    }
+    else
+    {
+        printf("");
+    }
 }
 
 int main(int argc, char** args)
@@ -290,13 +287,6 @@ int main(int argc, char** args)
         rgb->data,
         rgb->linesize);
 
-    //test(rgb, in_frame->width, in_frame->height);
-
-    Queue q;
-    init(&q, sizeof(RGBFrame*));
-    add(&q, rgb);
-    rgb = 0;
-
     char finished_read = 0;
     int oldest_read_frame_id = 0;
     res = 0;
@@ -317,14 +307,21 @@ int main(int argc, char** args)
 
     Queue threads;
     init(&threads, sizeof(HANDLE));
-    Queue params;
-    init(&params, sizeof(t_param*));
 
     HANDLE tmp_handle;
     t_param* tmp_params;
     int nb_thread_launched = 0;
 
     int last_frames_id = 0;
+
+    Stock stock;
+    sinit(&stock, sizeof(t_param*));
+
+    Stock frames;
+    sinit(&frames, sizeof(RGBFrame*));
+    sadd(&frames, rgb);
+
+    int index;
 
     printf("Started to encode\n");
 
@@ -340,11 +337,23 @@ int main(int argc, char** args)
         {
             finished_read = 1;
         }
-        if (alloc_RGBFrame(&rgb, nb_frame_read, input.codec_ctx->width, input.codec_ctx->height))
+        if (sget_available(&frames, &rgb, &index))
         {
-            printf("can't alloc_RGBFrame\n");
-            return 10;
+            if (alloc_RGBFrame(&rgb, nb_frame_read, input.codec_ctx->width, input.codec_ctx->height))
+            {
+                printf("can't alloc_RGBFrame\n");
+                return 10;
+            }
+            if (sadd(&frames, rgb))
+            {
+                printf("");
+                return 1;
+            }
         }
+        else
+            sset(&frames, index, 1);
+        rgb->id = nb_frame_read;
+
         sws_scale(yuv_to_rgb,
             in_frame->data,
             in_frame->linesize,
@@ -352,11 +361,7 @@ int main(int argc, char** args)
             in_frame->height,
             rgb->data,
             rgb->linesize);
-        if (add(&q, rgb))
-        {
-            printf("can't add to queue\n");
-            return 11;
-        }
+
         nb_frame_read += 1;
 
         if (nb_frame_target != -1)
@@ -365,19 +370,7 @@ int main(int argc, char** args)
             {
                 if (settings.opengl)
                 {
-                    //initialize
-                    //for each frame
-                    //  convert frame to float frame
-                    //  set uniform weight
-                    //  add
-                    //set uniform total weights
-                    //finish
-                    //download frame
-                    //encode frame
-                    //free frames
-
-
-
+                    /*
                     GLenum err;
 
                     glUseProgram(programs.init);
@@ -452,7 +445,7 @@ int main(int argc, char** args)
                     last_frames_id += 1;
                     nb_thread_launched += 1;
                     nb_frame_target = -1;
-                    continue;
+                    continue;*/
                 }
 
                 while ((nb_thread_launched - nb_frame_created) < threads.size || threads.size >= settings.threads)
@@ -468,96 +461,152 @@ int main(int argc, char** args)
                         return 15;
                     }
                     WaitForSingleObject(tmp_handle, INFINITE);
+
+                    char found = 0;
+
+                    for (int i = 0; i < stock.elements.size; i++)
+                    {
+                        if (sget(&stock, i, &tmp_params))
+                        {
+                            printf("");
+                            return 1;
+                        }
+                        if (tmp_params->thread == tmp_handle)
+                        {
+                            if (sset(&stock, i, 0))
+                            {
+                                printf("");
+                                return 1;
+                            }
+                            found = 1;
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        printf("");
+                        return 1;
+                    }
+
                     CloseHandle(tmp_handle);
-                    if (front(&params, &tmp_params))
-                    {
-                        printf("error in thread queue\n");
-                        return 14;
-                    }
-                    if (qremove(&params))
-                    {
-                        printf("error in thread queue\n");
-                        return 15;
-                    }
-                    free(tmp_params->in_frames);
-                    free(tmp_params);
                 }
 
-                if ( params.size > 0)
+                int min_id = 0x7fffffff;
+                for (int i = 0; i < stock.elements.size; i++)
                 {
-                    if (front(&params, &tmp_params))
+                    if (sget(&stock, i, &tmp_params))
                     {
-                        printf("error in thread queue\n");
+                        printf("");
+                        return 1;
+                    }
+                    for (int j = 0; j < tmp_params->nb; j++)
+                    {
+                        if (tmp_params->in_frames[j]->id < min_id)
+                        {
+                            min_id = tmp_params->in_frames[j]->id;
+                        }
+                    }
+                }
+
+                for (int i = 0; i < frames.availble.size; i++)
+                {
+                    if (sget(&frames, i, &rgb))
+                    {
+                        printf("");
+                        return 1;
+                    }
+                    if (rgb->id < min_id)
+                    {
+                        sset(&frames, i, 0);
+                    }
+                }
+                
+                if (sget_available(&stock, &tmp_params, &index))
+                {
+                    tmp_params = malloc(sizeof(t_param));
+                    if (!tmp_params)
+                    {
+                        printf("can't alloc\n");
                         return 16;
                     }
-                    int tmp_id = tmp_params->in_frames[0]->id;
-                    char flag = 0;
-                    do
+                    tmp_params->in_frames = malloc(sizeof(RGBFrame**) * settings.w_count);
+                    if (!tmp_params->in_frames)
                     {
-                        front(&q, &rgb);
-                        if (rgb->id < tmp_id)
-                        {
-                            qremove(&q);
-                            free_RGBFrame(rgb);
-                            oldest_read_frame_id += 1;
-                            flag = 1;
-                        }
-                        else
-                        {
-                            flag = 0;
-                        }
-                    } while (flag);
+                        printf("can't malloc\n");
+                        return 1;
+                    }
+                    if (alloc_RGBFrame(&tmp_params->rgb_result, 0, in_frame->width, in_frame->height))
+                    {
+                        printf("");
+                        return 1;
+                    }
+                    tmp_params->rgb_to_yuv =
+                        sws_getContext(in_frame->width,
+                            in_frame->height,
+                            AV_PIX_FMT_RGB24,
+                            in_frame->width,
+                            in_frame->height,
+                            output.codec_ctx->pix_fmt,
+                            SWS_BILINEAR,
+                            NULL, NULL, NULL);
+                    if (!tmp_params->rgb_to_yuv)
+                    {
+                        printf("can't sws_getContext\n");
+                        return 7;
+                    }
+                    tmp_params->out_frame = av_frame_alloc();
+                    if (!tmp_params->out_frame)
+                    {
+                        printf("can't av_frame_alloc\n");
+                        return 8;
+                    }
+                    int width = in_frame->width;
+                    int height = in_frame->height;
+                    int frame_size = width * height * 3;
+                    tmp_params->out_frame->data[0] = malloc(frame_size);
+                    tmp_params->out_frame->data[1] = tmp_params->out_frame->data[0] + width * height;
+                    tmp_params->out_frame->data[2] = tmp_params->out_frame->data[0] + width * height * 2;
+                    tmp_params->out_frame->data[3] = 0;
+                    tmp_params->out_frame->linesize[0] = width;
+                    tmp_params->out_frame->linesize[1] = width;
+                    tmp_params->out_frame->linesize[2] = width;
+                    tmp_params->out_frame->linesize[4] = 0;
+                    tmp_params->out_frame->format = AV_PIX_FMT_YUV444P;
+                    tmp_params->out_frame->width = width;
+                    tmp_params->out_frame->height = height;
+                    sadd(&stock, tmp_params);
                 }
                 else
-                {
-                    int tmp = nb_frame_read - oldest_read_frame_id - settings.w_count;
-                    for (int i = 0; i < tmp; i++)
-                    {
-                        if (front(&q, &rgb))
-                        {
-                            printf("can't front on q\n");
-                            return 1;
-                        }
-                        if (qremove(&q))
-                        {
-                            printf("can't remove on q\n");
-                            return 1;
-                        }
-                        free_RGBFrame(rgb);
-                        oldest_read_frame_id += 1;
-                    }
-                }
+                    sset(&stock, index, 1);
 
-                tmp_params = malloc(sizeof(t_param));
-                if (!tmp_params)
-                {
-                    printf("can't alloc\n");
-                    return 16;
-                }
                 tmp_params->frame_id = last_frames_id;
                 tmp_params->nb_frame_created = &nb_frame_created;
                 tmp_params->output = &output;
                 tmp_params->pts = (float)last_frames_id * pts_step;
-
-                tmp_params->nb = q.size > settings.w_count ? settings.w_count : q.size;
-                tmp_params->in_frames = malloc(sizeof(RGBFrame**) * tmp_params->nb);
-                if (!tmp_params->in_frames)
+                int max = nb_frame_target;
+                int min = nb_frame_target - settings.w_count;
+                if (min < 0)
+                    min = 0;
+                tmp_params->nb = max - min;
+                for (int i = 0; i < frames.elements.size; i++)
                 {
-                    printf("can't malloc\n");
-                    return 1;
-                }
-                for (int i = 0; i < tmp_params->nb; i++)
-                {
-                    get(&q, q.size - 1 - i, &rgb);
-                    tmp_params->in_frames[tmp_params->nb - 1 - i] = rgb;
+                    if (sget(&frames, i, &rgb))
+                    {
+                        printf("");
+                        return 1;
+                    }
+                    if (rgb->id <= max && rgb->id >= min)
+                    {
+                        tmp_params->in_frames[rgb->id - min] = rgb;
+                    }
                 }
                 tmp_params->weigths = &settings.weights[settings.w_count - tmp_params->nb];
-
-                add(&params, tmp_params);
 
                 last_frames_id += 1;
 
                 tmp_handle = CreateThread(NULL, 0, blend_and_encode, tmp_params, 0, NULL);
+                tmp_params->thread = tmp_handle;
                 add(&threads, tmp_handle);
                 nb_thread_launched += 1;
                 nb_frame_target = -1;
@@ -602,34 +651,9 @@ int main(int argc, char** args)
         }
         WaitForSingleObject(tmp_handle, INFINITE);
         CloseHandle(tmp_handle);
-        if (front(&params, &tmp_params))
-        {
-            printf("error in thread queue\n");
-            return 14;
-        }
-        if (qremove(&params))
-        {
-            printf("error in thread queue\n");
-            return 15;
-        }
-        free(tmp_params->in_frames);
-        free(tmp_params);
     }
 
-    while (q.size > 0)
-    {
-        if (front(&q, &rgb))
-        {
-            printf("");
-            break;
-        }
-        if (qremove(&q))
-        {
-            printf("");
-            break;
-        }
-        free_RGBFrame(rgb);
-    }
+    //free memory
 
     if (encode(&output, NULL))
     {
@@ -649,9 +673,3 @@ int main(int argc, char** args)
 
     return 0;
 }
-
-//init settings
-//init input output
-//read first frame
-//init opengl
-//

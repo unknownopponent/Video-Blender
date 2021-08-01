@@ -35,7 +35,7 @@ int set_default_values(Settings* settings)
 		}
 	}
 	settings->threads = 3;
-	settings->opengl = 1;
+	settings->opengl = 0;
 	return 0;
 }
 
