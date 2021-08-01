@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-int set_up_opengl_context(Programs* programs, int width, int height)
+int set_up_opengl_context(Programs* programs, int width, int height, HDC* dc, HGLRC* gl_ctx)
 {
 	WNDCLASSEXW wclass = { 0 };
 	wclass.cbSize = sizeof(WNDCLASSEXW);
@@ -63,28 +63,28 @@ int set_up_opengl_context(Programs* programs, int width, int height)
 		0, 0, 0
 	};
 
-	HDC dc = GetDC(window);
-	if (!dc)
+	*dc = GetDC(window);
+	if (!*dc)
 	{
 		printf("can't GetDC\n");
 		return 1;
 	}
 
 	int  pix_fmt;
-	pix_fmt = ChoosePixelFormat(dc, &pfd);
+	pix_fmt = ChoosePixelFormat(*dc, &pfd);
 	if (!pix_fmt)
 	{
 		printf("can't ChoosePixelFormat\n");
 		return 1;
 	}
-	if (!SetPixelFormat(dc, pix_fmt, &pfd))
+	if (!SetPixelFormat(*dc, pix_fmt, &pfd))
 	{
 		printf("can't SetPixelFormat\n");
 		return 1;
 	}
 
-	HGLRC gl_ctx = wglCreateContext(dc);
-	if (!wglMakeCurrent(dc, gl_ctx))
+	*gl_ctx = wglCreateContext(*dc);
+	if (!wglMakeCurrent(*dc, *gl_ctx))
 	{
 		printf("can't wglMakeCurrent\n");
 		return 1;
@@ -99,7 +99,7 @@ int set_up_opengl_context(Programs* programs, int width, int height)
 	wglCreateContextAttribsARB = (wglCreateContextAttribsARB_type*)wglGetProcAddress(
 		"wglCreateContextAttribsARB");
 
-	if (!wglDeleteContext(gl_ctx))
+	if (!wglDeleteContext(*gl_ctx))
 	{
 		printf("can't wglDeleteContext\n");
 		return 1;
@@ -112,14 +112,14 @@ int set_up_opengl_context(Programs* programs, int width, int height)
 		0,
 	};
 	
-	gl_ctx = wglCreateContextAttribsARB(dc, 0, attribs);
-	if (!gl_ctx)
+	*gl_ctx = wglCreateContextAttribsARB(*dc, 0, attribs);
+	if (!*gl_ctx)
 	{
 		printf("can't wglCreateContextAttribsARB\n");
 		return 1;
 	}
 
-	if (!wglMakeCurrent(dc, gl_ctx))
+	if (!wglMakeCurrent(*dc, *gl_ctx))
 	{
 		printf("can't wglMakeCurrent\n");
 		return 1;
@@ -272,6 +272,13 @@ int set_up_opengl_context(Programs* programs, int width, int height)
 	glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &workgroup_invocations);
 	printf("Nombre maximum d'invocation de workgroups:\n\t%u\n", workgroup_invocations);
 	*/
+
+	if (!wglMakeCurrent(*dc, 0))
+	{
+		printf("can't wglMakeCurrent\n");
+		return 1;
+	}
+
 	return 0;
 }
 

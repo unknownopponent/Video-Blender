@@ -36,7 +36,7 @@ typedef HGLRC WINAPI wglCreateContextAttribsARB_type(HDC hdc, HGLRC hShareContex
     const int* attribList);
 wglCreateContextAttribsARB_type* wglCreateContextAttribsARB;
 
-int set_up_opengl_context(Programs* programs, int width, int height);
+int set_up_opengl_context(Programs* programs, int width, int height, HDC* dc, HGLRC* gl_ctx);
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
