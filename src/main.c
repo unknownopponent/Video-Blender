@@ -11,6 +11,30 @@
 
 #include "windows.h"
 
+typedef struct Display_Parameters
+{
+    char finished;
+
+    int nb_frame_to_read;
+    int* nb_frames_read;
+    int* nb_frame_created;
+    int* nb_thread;
+
+} d_param;
+
+void display_thread(d_param* param)
+{
+    while (!param->finished)
+    {
+        printf("%d/%d frames read %f%%, %d frames created, %d active threads\r", 
+            *param->nb_frames_read, param->nb_frame_to_read, 
+            ((float)*param->nb_frames_read / (float)param->nb_frame_to_read * 100.0f), 
+            *param->nb_frame_created, 
+            *param->nb_thread);
+        Sleep(200);
+    }
+}
+
 typedef struct Thread_Parameters
 {
     HANDLE thread;
@@ -63,7 +87,7 @@ void encode_thread(t_param* params)
 
     *params->opengl_encode = 0;
 
-    printf("%d frames\r", params->frame_id);
+   // printf("%d frames\r", params->frame_id);
     *params->nb_frame_created += 1;
 }
 
@@ -381,6 +405,15 @@ int main(int argc, char** args)
 
     printf("Started to encode\n");
 
+    d_param d_param;
+    d_param.finished = 0;
+    d_param.nb_frames_read = &nb_frame_read;
+    d_param.nb_frame_to_read = (int)((float)input.format_ctx->duration / ((float)input.codec_ctx->time_base.den / (float)input.codec_ctx->time_base.num));
+    d_param.nb_frame_created = &nb_frame_created;
+    d_param.nb_thread = &threads.size;
+
+    HANDLE d_thread = CreateThread(NULL, 0, display_thread, &d_param, 0, NULL);
+
     while (!finished_read)
     {
         res = read(&input, in_frame);
@@ -636,6 +669,10 @@ int main(int argc, char** args)
         WaitForSingleObject(tmp_handle, INFINITE);
         CloseHandle(tmp_handle);
     }
+
+    d_param.finished = 1;
+    WaitForSingleObject(d_thread, INFINITE);
+    CloseHandle(d_thread);
 
     //free memory
 
