@@ -64,7 +64,7 @@ int parse(Settings* settings, int argc, char** args)
 		if (args[i][0] != '-')
 		{
 			printf(args[i]);
-			printf("is not an argument\n");
+			printf(" is not an argument\n");
 			return 1;
 		}
 		if (args[i][1] == 'i')
@@ -78,7 +78,7 @@ int parse(Settings* settings, int argc, char** args)
 			printf("input file does not exist\n");
 			return 1;
 		}
-		if (args[i][1] == 'o')
+		if (args[i][1] == 'o' && strlen(args[i]) == 2)
 		{
 			i += 1;
 			settings->output_file = args[i];
@@ -241,9 +241,9 @@ int parse(Settings* settings, int argc, char** args)
 					printf("can't malloc\n");
 					return 1;
 				}
-				for (int i = 0; i < value; i++)
+				for (int j = 0; j < value; j++)
 				{
-					settings->weights[i] = 1;
+					settings->weights[j] = 1;
 				}
 				qremove(&q);
 				continue;

@@ -126,9 +126,9 @@ int set_up_opengl_context(Programs* programs, int width, int height, HDC* dc, HG
 	}
 
 	char* paths[] = {
-		"repo/assets/Initialize.compute",
-		"repo/assets/AddFrame.compute",
-		"repo/assets/Finish.compute"
+		"assets/Initialize.compute",
+		"assets/AddFrame.compute",
+		"assets/Finish.compute"
 	};
 
 	char src[1024];

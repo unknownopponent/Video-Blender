@@ -461,7 +461,7 @@ int main(int argc, char** args)
 
                     if (!found)
                     {
-                        printf("");
+                        printf("erorrrrrrrrrrrrrrrrrrrrrrr\n");
                         return 1;
                     }
 
@@ -484,6 +484,8 @@ int main(int argc, char** args)
                         }
                     }
                 }
+                if (min_id == 0x7fffffff)
+                    min_id = -1;
 
                 for (int i = 0; i < frames.availble.size; i++)
                 {
