@@ -1,59 +1,48 @@
 # Video Blender
 
-Command line video processing tool, lossless weighted frame blending 
-
-## How to use
-
-### Exemple
-
-blend 3 frames
- * `vblender.exe -i video.mp4 -weights 3`
+Command line video processing tool, weighted frame blending 
 
 ### Doc
 
+#### format options
+
 file options :<br/>
-`-i file` input file<br/>
-`-o file` output file
+`-i file(s)` input(s) file(s)<br/>
+`-o folder` output folder
 
 output framerate options :<br/>
-`-fps int` set timebase with framerate<br/>
-`-timebase num/den` set timebase ex:-timebase 1/60
+`-fps int` set framerate with integer<br/>
+`-timebase num/den` set framerate with integer timebase ex:-timebase 1/60
+
+#### codec options
+
+`-dec codec` set decoder<br/>
+`-enc codec` set encoder<br/>
+`-enc_opt name=value` set encoder options, ex: see default parameters
+
+#### blending options
 
 weights options :<br/>
-`-weights int` set the number of frames blended with weights 1<br/>
-`-weights ints` set weights ex:-weights 1 1
+`-blendweights int` set the number of frames blended with integer weights 1 ex:-blendweights 2<br/>
+`-blendweights ints` set integer weights ex:-blendweights 1 1<br/>
+`-blendweights floats` set floating weights ex:-blendweights 1.0 1.0
 
 processing options :<br/>
-`-threads int` set number of threads for blending<br/>
-`-opengl` use opengl to blend frames
+`-blendthreads int` set maximum number of threads for blending, 0 is auto<br/>
+`-interbits int` set internal data bits, 32 or 64
 
-codec options :<br/>
-`-decoder codec` set decoder, possible values:h264,h265<br/>
-`-preset preset` set decoder preset<br/>
-`-crf int` set quality<br/>
-`-hd dec` set hardware decoder, possible values:Intel,Nvidia<br/>
-`-he enc` set hardware encoder, possible values:Intel,Nvidia,AMD
+#### default parameters
 
-## Why
+These arguments are the equivalent of default parameters:
 
-Streaming platforms and people's monitors are often maxed to 60 fps. If you have videos with more than 60 fps, you have two choices :
- * drop the framerate to keep sharpness
- * blend frames to keep the motion
+`-o output -enc libx264 -enc_opt preset=ultrafast crf=0 -fps 60 -blendweights 1 1 -blendthreads 0 -interbits 32`
 
-To achieve frame blending you can use editing softwares but you can't configure frame's weights, I used ffmpeg's tmix + fps filters but it is very slow because it calculate a lot of frames who are dropped to achieve targeted framerate.
+### Performances infos
 
-## Todo
+Internal data can be handled by 32/64 int/float variables. It will affect processing time and memory usage. You can choose the number of bits with "interbits" parameter. The floating variables are used when you specify floating in "blendweights" argument, integer is default.
 
- * clean the code
- * more than 8 bit colors support
- * real number weights
- * remux other input streams
- * port to other os (Windows only actually)
+If you see blend threads not maxed out, it is a decoder/encoder bottleneck, consider using hardware decoder/encoder.
 
-## Links
+### planned
 
-Some stuff related to frame blending : 
-
- * [Editing Software Frame Blending Weights Estimation](https://github.com/unknownopponent/Editing-Software-Frame-Blending-Weights-Estimation) : github repo about editing software frame blending
- * [my yt channel](https://www.youtube.com/channel/UCGeOcmuVh36YwHy_fvXrfng/videos) : showcase frame blending
- * [Couleur tweak tips](https://discord.gg/ctt) : video quality/frame blending discord server (and much more)
+cpu optimisations/gpu compute library implementation

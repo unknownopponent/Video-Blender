@@ -1,3 +1,10 @@
+v0.3 
+complete rewrite
+made blendlib
+added remuxing
+added real weights
+removed opengl
+
 v0.2 hardware acceleration + full cpu implements
 
 v0.1 first public release

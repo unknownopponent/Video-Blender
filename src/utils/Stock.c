@@ -5,8 +5,8 @@
 void sinit(Stock* stock, unsigned int elementSize)
 {
 
-	init(&stock->elements, elementSize);
-	init(&stock->availble, sizeof(char));
+	init_queue(&stock->elements, elementSize);
+	init_queue(&stock->availble, sizeof(char));
 
 	return 0;
 }

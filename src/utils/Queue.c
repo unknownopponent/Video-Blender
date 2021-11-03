@@ -2,7 +2,7 @@
 
 #include <stdlib.h>
 
-void init(Queue* queue, int elementSize)
+void init_queue(Queue* queue, int elementSize)
 {
 	queue->elements = 0;
 	queue->size = 0;

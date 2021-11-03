@@ -7,7 +7,7 @@ typedef struct Queue
 	unsigned int elementSize;
 } Queue;
 
-void init(Queue* queue, int elementSize);
+void init_queue(Queue* queue, int elementSize);
 
 int add(Queue* queue, void* element);
 int get(Queue* queue, int index, void** element);
