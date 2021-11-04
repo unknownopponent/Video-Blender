@@ -102,7 +102,52 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 		}
 		else if (!strcmp(args[i], "-enc_opt"))
 		{
-			//
+			if (args[i + 1][0] == '-')
+			{
+				fprintf(stderr, "no encoder given %s %s\n", args[i], args[i + 1]);
+				return 1;
+			}
+			i += 1;
+			tmpa = 0;
+			while (i + tmpa != argc && args[i + tmpa][0] != '-')
+			{
+				tmpa += 1;
+			}
+			vsettings->encoder_options = malloc(sizeof(char*) * tmpa * 2);
+			if (!vsettings->encoder_options)
+			{
+				oom();
+			}
+			for (int j = 0; j < tmpa; j++)
+			{
+				tmpb = 0;
+				while (args[i + j][tmpb] != '=')
+				{
+					if (!args[i + j][tmpb])
+					{
+						fprintf(stderr, "invalid encoder option format %s\n", args[i + j]);
+						return 1;
+					}
+					tmpb += 1;
+				}
+				vsettings->encoder_options[j * 2] = malloc(tmpb + 1);
+				if (!vsettings->encoder_options[j * 2])
+				{
+					oom();
+				}
+				memcpy(vsettings->encoder_options[j * 2], args[i + j], tmpb);
+				vsettings->encoder_options[j * 2][tmpb] = 0;
+				int tmp_len = strlen(args[i + j]) - tmpb;
+				vsettings->encoder_options[j * 2 + 1] = malloc(tmp_len);
+				if (!vsettings->encoder_options[j * 2 + 1])
+				{
+					oom();
+				}
+				memcpy(vsettings->encoder_options[j * 2 +1], args[i + j] + tmpb +1, tmp_len);
+				vsettings->encoder_options[j * 2 +1][tmp_len] = 0;
+			}
+			vsettings->encoder_options_count = tmpa;
+			i += tmpa - 1;
 		}
 		else if (!strcmp(args[i], "-fps"))
 		{
@@ -727,9 +772,10 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 			fprintf(stderr, "encode thread error\n");
 			return 1;
 		}
-		printf("\r%d/%d frames, %d/%d threads", 
+		printf("\r%d/%d frames(%f%%), %d/%d threads", 
 			read_frames, 
-			input.format_ctx->streams[input.video_stream_index]->nb_frames, 
+			input.format_ctx->streams[input.video_stream_index]->nb_frames,
+			(float)read_frames / (float)input.format_ctx->streams[input.video_stream_index]->nb_frames * 100.0f,
 			blend_ctx->blend_threads.size, 
 			bsettings->max_blend_threads);
 	}
