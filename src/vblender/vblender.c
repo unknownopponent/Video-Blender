@@ -144,7 +144,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 					oom();
 				}
 				memcpy(vsettings->encoder_options[j * 2 +1], args[i + j] + tmpb +1, tmp_len);
-				vsettings->encoder_options[j * 2 +1][tmp_len] = 0;
+				//vsettings->encoder_options[j * 2 +1][tmp_len] = 0;
 			}
 			vsettings->encoder_options_count = tmpa;
 			i += tmpa - 1;
@@ -451,6 +451,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 
 int vblend(char** args, int argsc)
 {
+	int return_code = 0;
 	VBlenderSettings vsettings = { 0 };
 	BlendSettings bsettings = { 0 };
 	char** input_files = 0;
@@ -460,13 +461,15 @@ int vblend(char** args, int argsc)
 	if (vblend_parse(args, argsc, &vsettings, &bsettings, &input_files, &input_file_count, &output_folder))
 	{
 		fprintf(stderr, "can't parse\n");
-		return 1;
+		return_code = 1;
+		goto end;
 	}
 	
 	if (create_folder(output_folder))
 	{
 		fprintf(stderr, "can't create output folder\n");
-		return 1;
+		return_code = 1;
+		goto end;
 	}
 
 	int path_len = strlen(output_folder);
@@ -504,15 +507,43 @@ int vblend(char** args, int argsc)
 		if (vblend_funct(&vsettings, &bsettings))
 		{
 			fprintf(stderr, "\n");
-			return 1;
+			return_code = 1;
+			goto end;
 		}
 	}
 
-	return 0;
+	end:
+
+	if (vsettings.output_file)
+		free(vsettings.output_file);
+	if (output_folder)
+		free(output_folder);
+	if (input_files)
+	{
+		for (int i = 0; i < input_file_count; i++)
+			free(input_files[i]);
+		free(input_files);
+	}
+	if (vsettings.decoder)
+		free(vsettings.decoder);
+	if (vsettings.encoder)
+		free(vsettings.encoder);
+	if (vsettings.encoder_options)
+	{
+		for (int i = 0; i < vsettings.encoder_options_count * 2; i++)
+			free(vsettings.encoder_options[i]);
+		free(vsettings.encoder_options);
+	}
+	if (bsettings.weights)
+		free(bsettings.weights);
+
+	return return_code;
 }
 
 char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 {
+	char return_code = 0;
+
 	CodingContext input = { 0 };
 	CodingContext output = { 0 };
 	AVDictionary* codec_options = { 0 };
@@ -528,12 +559,13 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	enum AVPixelFormat rgb_format;
 	VBlenderAddSettings asettings = { 0 };
 	VBlenderEncodeSettings esettings = { 0 };
-	BlendContext* blend_ctx;
+	BlendContext* blend_ctx = 0;
 
 	if (open_input(&input, vsettings->input_file, vsettings->decoder))
 	{
 		fprintf(stderr, "failled to open input %s\n", vsettings->input_file);
-		return 1;
+		return_code = 1;
+		goto end;
 	}
 
 	output.video_stream_index = input.video_stream_index;
@@ -541,11 +573,19 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	if (open_output(input.format_ctx, &output, vsettings->output_file))
 	{
 		fprintf(stderr, "failled to open output %s\n", vsettings->output_file);
-		return 1;
+		return_code = 1;
+		goto end;
 	}
 
-	for (int i=0; i<vsettings->encoder_options_count; i++)
-		av_dict_set(&codec_options, vsettings->encoder_options[i*2], vsettings->encoder_options[i * 2 +1], 0);
+	for (int i = 0; i < vsettings->encoder_options_count; i++)
+	{
+		if (av_dict_set(&codec_options, vsettings->encoder_options[i * 2], vsettings->encoder_options[i * 2 + 1], 0) < 0)
+		{
+			fprintf(stderr, "failled to set codec option in dictionary\n");
+			return_code = 1;
+			goto end;
+		}
+	}
 
 	timebase.num = vsettings->num; 
 	timebase.den = vsettings->den;
@@ -553,7 +593,8 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	if (open_encoder(&output, vsettings->encoder, &codec_options, timebase, input.format_ctx->streams[input.video_stream_index]->codecpar))
 	{
 		fprintf(stderr, "failled to open encoder\n");
-		return 1;
+		return_code = 1;
+		goto end;
 	}
 
 	width = input.format_ctx->streams[input.video_stream_index]->codecpar->width;
@@ -587,7 +628,8 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 			else
 			{
 				fprintf(stderr, "invalid internal data bits %d\n", vsettings->internal_data_bits);
-				return 1;
+				return_code = 1;
+				goto end;
 			}
 		}
 		break;
@@ -609,7 +651,8 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 			else
 			{
 				fprintf(stderr, "invalid internal data bits %d\n", vsettings->internal_data_bits);
-				return 1;
+				return_code = 1;
+				goto end;
 			}
 		}
 		break;
@@ -617,7 +660,8 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	default:
 	{
 		fprintf(stderr, "unsupported input data\n");
-		return 1;
+		return_code = 1;
+		goto end;
 	}
 	}
 
@@ -629,7 +673,8 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	if (init_blending(&blend_ctx, bsettings))
 	{
 		fprintf(stderr, "failled to init blending\n");
-		return 1;
+		return_code = 1;
+		goto end;
 	}
 
 	asettings.yuv_to_rgb =
@@ -644,7 +689,8 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	if (!asettings.yuv_to_rgb)
 	{
 		fprintf(stderr, "failled to get sws context\n");
-		return 1;
+		return_code = 1;
+		goto end;
 	}
 	asettings.height = height;	
 	asettings.tmp_array[0] = malloc(raw_rgb_size);
@@ -685,7 +731,8 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	if (!esettings.rgb_to_yuv)
 	{
 		fprintf(stderr, "failled to get sws context\n");
-		return 1;
+		return_code = 1;
+		goto end;
 	}
 	esettings.linesize = linesize;
 	esettings.height = height;
@@ -701,7 +748,6 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	{
 		oom();
 	}
-
 	esettings.pts_step = (float)output.format_ctx->streams[output.video_stream_index]->time_base.num
 		* (float)output.format_ctx->streams[output.video_stream_index]->time_base.den
 		/ (float)bsettings->oden
@@ -710,13 +756,29 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	Thread add_thread = { 0 };
 	char add_thread_running = 0;
 	Thread encode_thread = { 0 };
+	char encode_thread_running = 0;
 
-	AVFrame* frame1 = av_frame_alloc();
-	AVFrame* frame2 = av_frame_alloc();
+	AVFrame* frame1 = 0;
+	frame1 = av_frame_alloc();
+	if (!frame1)
+	{
+		oom();
+	}
+	AVFrame* frame2 = 0;
+	frame2 = av_frame_alloc();
+	if (!frame2)
+	{
+		oom();
+	}
 	char on_one = 1;
 	AVFrame* in_frame = frame1;
 
-	AVPacket* packet = av_packet_alloc();
+	AVPacket* packet = 0;
+	packet = av_packet_alloc();
+	if (!packet)
+	{
+		oom();
+	}
 
 	char flag;
 
@@ -725,6 +787,7 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	encode_thread.function = vblender_encode;
 	encode_thread.params = &esettings;
 	launch_thread(&encode_thread);
+	encode_thread_running = 1;
 
 	uint64_t read_frames = 0;
 
@@ -737,7 +800,8 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 			if (flag < 0)
 			{
 				fprintf(stderr, "failled to decode frame\n");
-				return 1;
+				return_code = 1;
+				goto end;
 			}
 			if (!flag)
 			{
@@ -765,12 +829,14 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 		if (asettings.exit)
 		{
 			fprintf(stderr, "add thread error\n");
-			return 1;
+			return_code = 1;
+			goto end;
 		}
 		if (esettings.exit)
 		{
 			fprintf(stderr, "encode thread error\n");
-			return 1;
+			return_code = 1;
+			goto end;
 		}
 		printf("\r%d/%d frames(%f%%), %d/%d threads", 
 			read_frames, 
@@ -780,26 +846,67 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 			bsettings->max_blend_threads);
 	}
 
-	printf("\n");
+	printf("\n");	
+
+end:
 
 	if (add_thread_running)
 	{
 		join_thread(&add_thread);
+		add_thread_running = 0;
 	}
 
-	finish_blending(blend_ctx);
-	esettings.finished_read_input = 1;
-	join_thread(&encode_thread);
+	if (encode_thread_running)
+	{
+		esettings.finished_read_input = 1;
+		join_thread(&encode_thread);
+	}
 
-	free_blending(blend_ctx);
+	if (blend_ctx)
+		finish_blending(blend_ctx);
 
-	close_output_file(output.format_ctx);
+	if (asettings.yuv_to_rgb)
+		sws_freeContext(asettings.yuv_to_rgb);
+	if (asettings.tmp_array[0])
+		free(asettings.tmp_array[0]);
+	if (asettings.converted_rgb_data)
+		free(asettings.converted_rgb_data);
 
-	close_coding_context(&input);
-	close_coding_context(&output);
-
-	//todo
-
+	if (esettings.in_packets.size)
+	{
+		AVPacket* tmp_packet;
+		while (esettings.in_packets.size)
+		{
+			front(&esettings.in_packets, &tmp_packet);
+			qremove(&esettings.in_packets);
+			av_packet_free(&tmp_packet);
+		}
+	}
+	delete_mutex(&esettings.packet_mutex);
+	if (esettings.rgb_to_yuv)
+		sws_freeContext(esettings.rgb_to_yuv);
+	if (esettings.out_frame)
+		av_frame_free(&esettings.out_frame);
+	
+	if (output.format_ctx)
+	{
+		close_output_file(output.format_ctx);
+		close_coding_context(&output);
+	}
+	if (input.format_ctx)
+		close_coding_context(&input);
+	if (codec_options)
+		av_dict_free(&codec_options);
+	if (blend_ctx)
+		free_blending(blend_ctx);
+	/*
+	if (frame1)
+		av_frame_free(&frame1);
+	if (frame2)
+		av_frame_free(&frame2);
+	if (packet)
+		av_packet_free(&packet);
+		*/
 	return 0;
 }
 
@@ -830,7 +937,6 @@ void vblender_add(VBlenderAddSettings* asettings)
 		rgb_data = asettings->tmp_array[0];
 	}
 
-	//blend
 	if (add_frame(asettings->blend_ctx, rgb_data))
 	{
 		fprintf(stderr, "failled to add frame to blending\n");
@@ -842,7 +948,7 @@ void vblender_add(VBlenderAddSettings* asettings)
 void vblender_encode(VBlenderEncodeSettings* esettings)
 {
 	AVPacket** tmp_packets = 0;
-	void** tmp_frames;
+	void** tmp_frames = 0;
 	uint64_t tmp_count = 0;
 	uint64_t tmp_size = 0;
 
@@ -894,13 +1000,15 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 				{
 					fprintf(stderr, "failled to write packet\n");
 					esettings->exit = 1;
-					return;
+					goto end;
 				}
 
 				av_packet_free(tmp_packets[i]);
+				tmp_packets[i] = 0;
 			}
 
 			free(tmp_packets);
+			tmp_packets = 0;
 		}
 		else if (esettings->blend_ctx->created_frames.size)
 		{
@@ -925,7 +1033,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 					{
 						fprintf(stderr, "failled to convert frame\n");
 						esettings->exit = 1;
-						return;
+						goto end;
 					}
 				}
 				else
@@ -946,7 +1054,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 				{
 					fprintf(stderr, "failled to send frame to codec\n");
 					esettings->exit = 1;
-					return;
+					goto end;
 				}
 
 				while ((ret = avcodec_receive_packet(esettings->output->codec_ctx, packet)) >= 0)
@@ -961,7 +1069,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 					{
 						fprintf(stderr, "failled to write packet\n");
 						esettings->exit = 1;
-						return;
+						goto end;
 					}
 
 					av_packet_unref(packet);
@@ -969,9 +1077,11 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 
 				encoded_frames += 1;
 				free(tmp_frames[i]);
+				tmp_frames[i] = 0;
 			}
 
 			free(tmp_frames);
+			tmp_frames = 0;
 		}
 		else
 		{
@@ -979,8 +1089,27 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 		}
 	}
 	
+	end:
+
 	av_packet_free(packet);
 
 	if (convertion)
 		free(converted_rgb_data);
+
+	if (tmp_packets)
+	{
+		for (int i=0;i< tmp_count;i++)
+			if (tmp_packets[i])
+				av_packet_free(tmp_packets[i]);
+		free(tmp_packets);
+	}
+
+	if (tmp_frames)
+	{
+		for (int i = 0; i < tmp_count; i++)
+			if (tmp_frames[i])
+				free(tmp_frames[i]);
+		free(tmp_frames);
+	}
+
 }

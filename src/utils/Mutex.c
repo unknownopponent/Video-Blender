@@ -21,5 +21,9 @@ char unlock_mutex(Mutex* mutex)
 
 char delete_mutex(Mutex* mutex)
 {
-	return CloseHandle(mutex->h);
+	if (!mutex->h)
+		return 1;
+	char tmp = CloseHandle(mutex->h);
+	mutex->h = 0;
+	return tmp;
 }
