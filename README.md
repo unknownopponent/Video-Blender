@@ -35,7 +35,7 @@ processing options :<br/>
 
 These arguments are the equivalent of default parameters:
 
-`-o output -enc libx264 -enc_opt preset=ultrafast crf=0 -fps 60 -blendweights 1 1 -blendthreads 0 -interbits 32`
+`-o ./output -enc libx264 -enc_opt preset=ultrafast crf=0 -fps 60 -blendweights 1 1 -blendthreads 0 -interbits 32`
 
 ### Performances infos
 
