@@ -1003,7 +1003,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 					goto end;
 				}
 
-				av_packet_free(tmp_packets[i]);
+				av_packet_free(&tmp_packets[i]);
 				tmp_packets[i] = 0;
 			}
 
