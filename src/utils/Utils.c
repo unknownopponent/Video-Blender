@@ -37,6 +37,8 @@ void sleep_milli(int milli)
 #include <errno.h>
 #include <time.h>
 
+int nanosleep(const struct timespec *req, struct timespec *rem);
+
 int get_available_threads()
 {
 	long res = sysconf(_SC_NPROCESSORS_ONLN);
