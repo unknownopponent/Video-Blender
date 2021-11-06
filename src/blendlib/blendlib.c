@@ -6,54 +6,54 @@ char init_blending(BlendContext** blend_ctx, BlendSettings* settings)
 {
 	if (!settings->blend_funct)
 	{
-		printf("");
+		fprintf(stderr, "no blend funct given\n");
 		return 1;
 	}
-	if (settings->max_blend_threads == 0) //todo auto, cl
+	if (settings->max_blend_threads == 0)
 		settings->max_blend_threads = 1;
 	if (!settings->width)
 	{
-		printf("");
+		fprintf(stderr, "no width given\n");
 		return 1;
 	}
 	if (!settings->height)
 	{
-		printf("");
+		fprintf(stderr, "no height given\n");
 		return 1;
 	}
 	if (settings->frame_type >= FTYPES_COUNT)
 	{
-		printf("");
+		fprintf(stderr, "no input frame type given\n");
 		return 1;
 	}
 	if (!settings->weights)
 	{
-		printf("");
+		fprintf(stderr, "no weights given\n");
 		return 1;
 	}
 	if (!settings->weights_c)
 	{
-		printf("");
+		fprintf(stderr, "no weigth count given\n");
 		return 1;
 	}
 	if (!settings->iden)
 	{
-		printf("");
+		fprintf(stderr, "no input timebase den given\n");
 		return 1;
 	}
 	if (!settings->inum)
 	{
-		printf("");
+		fprintf(stderr, "no input timebase num given\n");
 		return 1;
 	}
 	if (!settings->onum)
 	{
-		printf("");
+		fprintf(stderr, "no output timebase num given\n");
 		return 1;
 	}
 	if (!settings->oden)
 	{
-		printf("");
+		fprintf(stderr, "no output timebase den given\n");
 		return 1;
 	}
 
@@ -89,7 +89,7 @@ char init_blending(BlendContext** blend_ctx, BlendSettings* settings)
 	init_queue(&ctx->created_frames, sizeof(RGBFrame*));
 	if (create_mutex(&ctx->output_frames_mutex))
 	{
-		printf("");
+		fprintf(stderr, "can't create mutex\n");
 		return 1;
 	}
 

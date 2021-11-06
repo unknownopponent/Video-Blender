@@ -18,9 +18,8 @@ char decode_frame(CodingContext* ctx, AVFrame* frame, AVPacket* packet);
 char open_output(AVFormatContext* input, CodingContext* output, const char* file);
 char open_encoder(CodingContext* ctx, char* encoder_name, AVDictionary** codec_options, AVRational timebase, AVCodecParameters* input_params);
 
-char encode(AVCodecContext* ctx, AVFrame* frame, AVPacket* packet);
-char write_packet(AVFormatContext* ctx, AVPacket* packet);
-
 char close_output_file(AVFormatContext* format);
 
 void close_coding_context(CodingContext* ctx);
+
+void print_av_error(int error);
