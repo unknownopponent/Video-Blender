@@ -2,7 +2,7 @@
 
 #include "utils/Error.h"
 
-char open_input(CodingContext* ctx, char* file, const char* decoder_name)
+char open_input(CodingContext* ctx, const char* file, const char* decoder_name)
 {
     if (avformat_open_input(&ctx->format_ctx, file, NULL, NULL) < 0)
     {
@@ -78,7 +78,7 @@ char open_decoder(AVCodecContext** ctx, AVCodec* codec, AVCodecParameters* param
         if (avcodec_parameters_to_context(*ctx, param) < 0)
         {
             fprintf(stderr, "failled to set parameters to decoder context\n");
-            avcodec_free_context(*ctx);
+            avcodec_free_context(ctx);
             *ctx = 0;
             return 1;
         }
@@ -87,7 +87,7 @@ char open_decoder(AVCodecContext** ctx, AVCodec* codec, AVCodecParameters* param
     if (avcodec_open2(*ctx, codec, NULL) < 0)
     {
         fprintf(stderr, "failled to open decoder\n");
-        avcodec_free_context(*ctx);
+        avcodec_free_context(ctx);
         *ctx = 0;
         return 1;
     }
@@ -147,10 +147,21 @@ char open_output(AVFormatContext* input, CodingContext* output, const char* file
         }
     }
 
+	int ret;
+
     if (!(output->format_ctx->oformat->flags & AVFMT_NOFILE))
     {
-        if (avio_open(&output->format_ctx->pb, file, AVIO_FLAG_WRITE) < 0) {
-            fprintf(stderr, "failled to io open output\n");
+        if ((ret = avio_open(&output->format_ctx->pb, file, AVIO_FLAG_WRITE)) < 0) {
+            fprintf(stderr, "failled to io open output %s\n", file);
+		char buffer[1024] = { 0 };
+		if (av_strerror(ret, buffer, 1024) < 0)
+		{
+			fprintf(stderr, "can't read av error\n");
+		}
+		else
+		{
+			fprintf(stderr, "%s\n", buffer);
+		}
             close_coding_context(output);
             return 1;
         }

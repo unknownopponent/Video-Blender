@@ -292,12 +292,12 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 	}
 	if (!*output_folder)
 	{
-		*output_folder = malloc(7);
+		*output_folder = malloc(8);
 		if (!*output_folder)
 		{
 			oom();
 		}
-		memcpy(*output_folder, "output", 7);
+		memcpy(*output_folder, "/output", 8);
 	}
 	if (!vsettings->encoder)
 	{
@@ -877,7 +877,7 @@ end:
 		AVPacket* tmp_packet;
 		while (esettings.in_packets.size)
 		{
-			front(&esettings.in_packets, &tmp_packet);
+			front(&esettings.in_packets, (void**)&tmp_packet);
 			qremove(&esettings.in_packets);
 			av_packet_free(&tmp_packet);
 		}
@@ -1085,7 +1085,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 		}
 		else
 		{
-			Sleep(1);
+			sleep_milli(1);
 		}
 	}
 	

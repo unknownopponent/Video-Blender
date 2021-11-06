@@ -1,11 +1,14 @@
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+//#define WIN32_LEAN_AND_MEAN
+//#include <windows.h>
+
+#include <threads.h>
 
 typedef struct Mutex
 {
-	HANDLE h;
+	mtx_t id;
+	//HANDLE h;
 } Mutex;
 
 char create_mutex(Mutex* mutex);

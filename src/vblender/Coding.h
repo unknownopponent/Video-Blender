@@ -11,7 +11,7 @@ typedef struct CodingContext
 	unsigned int video_stream_index;
 }CodingContext;
 
-char open_input(CodingContext* ctx, const char* file, char* decoder_name);
+char open_input(CodingContext* ctx, const char* file, const char* decoder_name);
 char open_decoder(AVCodecContext** ctx, AVCodec* codec, AVCodecParameters* param);
 char decode_frame(CodingContext* ctx, AVFrame* frame, AVPacket* packet);
 
