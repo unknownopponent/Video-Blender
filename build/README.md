@@ -1,6 +1,6 @@
 # Build
 
-## Required C standard
+## Required minimum C standard
 
  * On Windows : C99
  * On Linux : C11

@@ -144,7 +144,6 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 					oom();
 				}
 				memcpy(vsettings->encoder_options[j * 2 +1], args[i + j] + tmpb +1, tmp_len);
-				//vsettings->encoder_options[j * 2 +1][tmp_len] = 0;
 			}
 			vsettings->encoder_options_count = tmpa;
 			i += tmpa - 1;
@@ -292,12 +291,12 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 	}
 	if (!*output_folder)
 	{
-		*output_folder = malloc(8);
+		*output_folder = malloc(9);
 		if (!*output_folder)
 		{
 			oom();
 		}
-		memcpy(*output_folder, "/output", 8);
+		memcpy(*output_folder, "./output", 9);
 	}
 	if (!vsettings->encoder)
 	{
@@ -906,7 +905,7 @@ end:
 		av_frame_free(&frame2);
 	if (packet)
 		av_packet_free(&packet);
-		*/
+	*/
 	return 0;
 }
 
@@ -999,6 +998,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 				if (ret < 0)
 				{
 					fprintf(stderr, "failled to write packet\n");
+					print_av_error(ret);
 					esettings->exit = 1;
 					goto end;
 				}
@@ -1050,9 +1050,10 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 
 				esettings->out_frame->pts = esettings->pts_step * (float)encoded_frames;
 
-				if (avcodec_send_frame(esettings->output->codec_ctx, esettings->out_frame))
+				if ((ret = avcodec_send_frame(esettings->output->codec_ctx, esettings->out_frame)) < 0)
 				{
 					fprintf(stderr, "failled to send frame to codec\n");
+					print_av_error(ret);
 					esettings->exit = 1;
 					goto end;
 				}
@@ -1068,6 +1069,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 					if (ret < 0)
 					{
 						fprintf(stderr, "failled to write packet\n");
+						print_av_error(ret);
 						esettings->exit = 1;
 						goto end;
 					}

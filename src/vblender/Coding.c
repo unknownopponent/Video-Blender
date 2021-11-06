@@ -4,15 +4,19 @@
 
 char open_input(CodingContext* ctx, const char* file, const char* decoder_name)
 {
-    if (avformat_open_input(&ctx->format_ctx, file, NULL, NULL) < 0)
+    int ret;
+
+    if ((ret = avformat_open_input(&ctx->format_ctx, file, NULL, NULL)) < 0)
     {
         fprintf(stderr, "failled to format open input\n");
+        print_av_error(ret);
         close_coding_context(ctx);
         return 1;
     }
-    if (avformat_find_stream_info(ctx->format_ctx, NULL) < 0)
+    if ((ret = avformat_find_stream_info(ctx->format_ctx, NULL)) < 0)
     {
         fprintf(stderr, "failled to find stream infos\n");
+        print_av_error(ret);
         close_coding_context(ctx);
         return 1;
     }
@@ -54,9 +58,10 @@ char open_input(CodingContext* ctx, const char* file, const char* decoder_name)
         return 1;
     }
 
-    if (open_decoder(&ctx->codec_ctx, decoder, ctx->format_ctx->streams[ctx->video_stream_index]->codecpar))
+    if ((ret = open_decoder(&ctx->codec_ctx, decoder, ctx->format_ctx->streams[ctx->video_stream_index]->codecpar)))
     {
         fprintf(stderr, "failled to open decoder\n");
+        print_av_error(ret);
         close_coding_context(ctx);
         return 1;
     }
@@ -66,6 +71,8 @@ char open_input(CodingContext* ctx, const char* file, const char* decoder_name)
 
 char open_decoder(AVCodecContext** ctx, AVCodec* codec, AVCodecParameters* param)
 {
+    int ret;
+
     *ctx = avcodec_alloc_context3(codec);
     if (!*ctx)
     {
@@ -75,18 +82,20 @@ char open_decoder(AVCodecContext** ctx, AVCodec* codec, AVCodecParameters* param
 
     if (param)
     {
-        if (avcodec_parameters_to_context(*ctx, param) < 0)
+        if ((ret = avcodec_parameters_to_context(*ctx, param)) < 0)
         {
             fprintf(stderr, "failled to set parameters to decoder context\n");
+            print_av_error(ret);
             avcodec_free_context(ctx);
             *ctx = 0;
             return 1;
         }
     }
 
-    if (avcodec_open2(*ctx, codec, NULL) < 0)
+    if ((ret = avcodec_open2(*ctx, codec, NULL)) < 0)
     {
         fprintf(stderr, "failled to open decoder\n");
+        print_av_error(ret);
         avcodec_free_context(ctx);
         *ctx = 0;
         return 1;
@@ -97,21 +106,22 @@ char open_decoder(AVCodecContext** ctx, AVCodec* codec, AVCodecParameters* param
 
 char decode_frame(CodingContext* ctx, AVFrame* frame, AVPacket* packet)
 {
-    int response;
-    response = avcodec_send_packet(ctx->codec_ctx, packet);
-    if (response < 0)
+    int ret;
+    if ((ret = avcodec_send_packet(ctx->codec_ctx, packet)) < 0)
     {
         fprintf(stderr, "failled to send packet to decoder\n");
+        print_av_error(ret);
         return -1;
     }
 
-    response = avcodec_receive_frame(ctx->codec_ctx, frame);
-    if (response == AVERROR(EAGAIN) || response == AVERROR_EOF) {
+    ret = avcodec_receive_frame(ctx->codec_ctx, frame);
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
         return 1;
     }
-    else if (response < 0)
+    else if (ret < 0)
     {
         fprintf(stderr, "failled to receive frame\n");
+        print_av_error(ret);
         return -1;
     }
 
@@ -120,9 +130,12 @@ char decode_frame(CodingContext* ctx, AVFrame* frame, AVPacket* packet)
 
 char open_output(AVFormatContext* input, CodingContext* output, const char* file)
 {
-    if (avformat_alloc_output_context2(&output->format_ctx, NULL, NULL, file) < 0)
+    int ret = 0;
+
+    if ((ret = avformat_alloc_output_context2(&output->format_ctx, NULL, NULL, file)) < 0)
     {
         fprintf(stderr, "failled to alloc output context\n");
+        print_av_error(ret);
         close_coding_context(output);
         return 1;
     }
@@ -139,37 +152,29 @@ char open_output(AVFormatContext* input, CodingContext* output, const char* file
             return 1;
         }
 
-        if (avcodec_parameters_copy(tmp_stream->codecpar, input->streams[i]->codecpar) < 0)
+        if ((ret = avcodec_parameters_copy(tmp_stream->codecpar, input->streams[i]->codecpar)) < 0)
         {
             fprintf(stderr, "failled copy input codec parameters to output\n");
+            print_av_error(ret);
             close_coding_context(output);
             return 1;
         }
     }
-
-	int ret;
 
     if (!(output->format_ctx->oformat->flags & AVFMT_NOFILE))
     {
         if ((ret = avio_open(&output->format_ctx->pb, file, AVIO_FLAG_WRITE)) < 0) {
             fprintf(stderr, "failled to io open output %s\n", file);
-		char buffer[1024] = { 0 };
-		if (av_strerror(ret, buffer, 1024) < 0)
-		{
-			fprintf(stderr, "can't read av error\n");
-		}
-		else
-		{
-			fprintf(stderr, "%s\n", buffer);
-		}
+            print_av_error(ret);
             close_coding_context(output);
             return 1;
         }
     }
 
-    if (avformat_write_header(output->format_ctx, NULL) < 0)
+    if ((ret = avformat_write_header(output->format_ctx, NULL)) < 0)
     {
         fprintf(stderr, "failled to write output file headers\n");
+        print_av_error(ret);
         close_coding_context(output);
         return 1;
     }
@@ -179,6 +184,7 @@ char open_output(AVFormatContext* input, CodingContext* output, const char* file
 
 char open_encoder(CodingContext* ctx, char* encoder_name, AVDictionary** codec_options, AVRational timebase, AVCodecParameters* input_params)
 {
+    int ret;
     AVCodec* codec = avcodec_find_encoder_by_name(encoder_name);
     ctx->codec_ctx = avcodec_alloc_context3(codec);
     if (!ctx->codec_ctx)
@@ -187,7 +193,13 @@ char open_encoder(CodingContext* ctx, char* encoder_name, AVDictionary** codec_o
         return 1;
     }
 
-    avcodec_parameters_to_context(ctx->codec_ctx, input_params);
+    if ((ret = avcodec_parameters_to_context(ctx->codec_ctx, input_params)) < 0)
+    {
+        fprintf(stderr, "failled to alloc encoder context\n");
+        print_av_error(ret);
+        avcodec_free_context(&ctx->codec_ctx);
+        return 1;
+    }
 
     ctx->codec_ctx->profile = FF_PROFILE_UNKNOWN;
     ctx->codec_ctx->time_base = timebase;
@@ -195,9 +207,10 @@ char open_encoder(CodingContext* ctx, char* encoder_name, AVDictionary** codec_o
     if (ctx->format_ctx->oformat->flags & AVFMT_GLOBALHEADER)
         ctx->codec_ctx->flags |= AVFMT_GLOBALHEADER;
 
-    if (avcodec_open2(ctx->codec_ctx, codec, codec_options) < 0)
+    if ((ret = avcodec_open2(ctx->codec_ctx, codec, codec_options)) < 0)
     {
         fprintf(stderr, "failled to open encoder\n");
+        print_av_error(ret);
         avcodec_free_context(&ctx->codec_ctx);
         ctx->codec_ctx = 0;
         return 1;
@@ -208,16 +221,20 @@ char open_encoder(CodingContext* ctx, char* encoder_name, AVDictionary** codec_o
 
 char close_output_file(AVFormatContext* format)
 {
-    if (av_write_trailer(format))
+    int ret;
+
+    if ((ret = av_write_trailer(format)))
     {
         fprintf(stderr, "failled to write output trailler\n");
+        print_av_error(ret);
         return 1;
     }
 
     if (!(format->oformat->flags & AVFMT_NOFILE)) {
-        if (avio_close(format->pb) < 0)
+        if ((ret = avio_close(format->pb) < 0))
         {
             fprintf(stderr, "failled to io close output\n");
+            print_av_error(ret);
             return 1;
         }
     }
@@ -239,4 +256,17 @@ void close_coding_context(CodingContext* ctx)
         ctx->format_ctx = 0;
     }
     ctx->video_stream_index = 0;
+}
+
+void print_av_error(int error)
+{
+    char buffer[1024] = { 0 };
+    if (av_strerror(error, buffer, 1024) < 0)
+    {
+        fprintf(stderr, "can't read av error\n");
+    }
+    else
+    {
+        fprintf(stderr, "%s\n", buffer);
+    }
 }
