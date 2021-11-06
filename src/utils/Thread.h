@@ -1,20 +1,24 @@
 #pragma once
 
-//#define WIN32_LEAN_AND_MEAN
-//#include <Windows.h>
-
+#ifdef _WIN32 
+#include <Windows.h>
+#else
 #include <threads.h>
+#endif
 
 typedef struct Thread
 {
 	void* function;
 	void* params;
 
-	//HANDLE h;
+#ifdef _WIN32
+	HANDLE h;
+#else
 	thrd_t id;
+#endif
 } Thread;
 
-//struct must be filled with data
+//struct must be filled with data(function and params)
 char launch_thread(Thread* thread);
 
 char join_thread(Thread* thread);
