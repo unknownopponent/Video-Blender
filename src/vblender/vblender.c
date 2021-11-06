@@ -912,11 +912,11 @@ end:
 void vblender_add(VBlenderAddSettings* asettings)
 {
 	sws_scale(asettings->yuv_to_rgb,
-		asettings->in_frame->data,
+		(const uint8_t*const*) asettings->in_frame->data,
 		asettings->in_frame->linesize,
 		0,
 		asettings->height,
-		asettings->tmp_array,
+		(uint8_t**)asettings->tmp_array,
 		asettings->linesize);
 
 	void* rgb_data;
@@ -1041,7 +1041,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 					tmp_array[0] = tmp_frames[i];
 				}
 				sws_scale(esettings->rgb_to_yuv,
-					tmp_array,
+					(const uint8_t *const*) tmp_array,
 					esettings->linesize,
 					0,
 					esettings->height,
@@ -1093,7 +1093,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 	
 	end:
 
-	av_packet_free(packet);
+	av_packet_free(&packet);
 
 	if (convertion)
 		free(converted_rgb_data);
@@ -1102,7 +1102,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 	{
 		for (int i=0;i< tmp_count;i++)
 			if (tmp_packets[i])
-				av_packet_free(tmp_packets[i]);
+				av_packet_free(&tmp_packets[i]);
 		free(tmp_packets);
 	}
 

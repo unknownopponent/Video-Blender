@@ -1,6 +1,7 @@
 #include "Stock.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 
 void sinit(Stock* stock, unsigned int elementSize)
 {
@@ -8,7 +9,7 @@ void sinit(Stock* stock, unsigned int elementSize)
 	init_queue(&stock->elements, elementSize);
 	init_queue(&stock->availble, sizeof(char));
 
-	return 0;
+	return;
 }
 
 int sadd(Stock* stock, void* element)
@@ -18,7 +19,7 @@ int sadd(Stock* stock, void* element)
 		printf("");
 		return 1;
 	}
-	if (add(&stock->availble, 1))
+	if (add(&stock->availble, (void*)1))
 	{
 		printf("");
 		return 1;

@@ -2,6 +2,8 @@
 
 #include "../utils/Error.h"
 
+#include <string.h>
+
 char init_blending(BlendContext** blend_ctx, BlendSettings* settings)
 {
 	if (!settings->blend_funct)
@@ -110,7 +112,7 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 
 	if (blend_ctx->blend_threads.size)
 	{
-		if (front(&blend_ctx->blend_threads, &tmp_thread))
+		if (front(&blend_ctx->blend_threads, (void**)&tmp_thread))
 		{
 			fprintf(stderr, "queue front error\n");
 			return 1;
@@ -120,7 +122,7 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 
 		for (int i = 0; i < blend_ctx->input_frames.availble.size; i++)
 		{
-			if (get(&blend_ctx->input_frames.elements, i, &tmp_frame))
+			if (get(&blend_ctx->input_frames.elements, i, (void**)&tmp_frame))
 			{
 				fprintf(stderr, "queue get error\n");
 				return 1;
@@ -139,7 +141,7 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 	{
 		if (!blend_ctx->blend_threads.size)
 			break;
-		if (front(&blend_ctx->blend_threads, &tmp_thread))
+		if (front(&blend_ctx->blend_threads, (void**)&tmp_thread))
 		{
 			fprintf(stderr, "queue front error\n");
 			return 1;
@@ -163,7 +165,7 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 		int index = -1;
 		for (int i = 0; i < blend_ctx->blend_ctxs.availble.size; i++)
 		{
-			if (get(&blend_ctx->blend_ctxs.elements, i, &tmp_ctx2))
+			if (get(&blend_ctx->blend_ctxs.elements, i, (void**)&tmp_ctx2))
 			{
 				fprintf(stderr, "queue get error\n");
 				return 1;
@@ -187,7 +189,7 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 	}
 	
 	int index;
-	if (sget_available(&blend_ctx->input_frames, &tmp_frame, &index))
+	if (sget_available(&blend_ctx->input_frames, (void**)&tmp_frame, &index))
 	{
 		if (alloc_RGBFrame(&tmp_frame, blend_ctx->total_input_frames, blend_ctx->settings->width, blend_ctx->settings->height, type_sizes[blend_ctx->settings->frame_type]))
 		{
@@ -239,7 +241,7 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 
 	if (blend_ctx->frame_end < blend_ctx->total_input_frames)
 	{
-		if (sget_available(&blend_ctx->blend_ctxs, &tmp_ctx, &index))
+		if (sget_available(&blend_ctx->blend_ctxs, (void**)&tmp_ctx, &index))
 		{
 			tmp_ctx = calloc(1, sizeof(BlendThreadContext));
 			if (!tmp_ctx)
@@ -279,7 +281,7 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 			flag = 0;
 			for (int j = 0; j < blend_ctx->input_frames.elements.size; j++)
 			{
-				if (get(&blend_ctx->input_frames.elements, j, &tmp_frame))
+				if (get(&blend_ctx->input_frames.elements, j, (void**)&tmp_frame))
 				{
 					fprintf(stderr, "queue get error\n");
 					return 1;
@@ -371,7 +373,7 @@ char finish_blending(BlendContext* blend_ctx)
 		if (blend_ctx->frame_begin >= blend_ctx->frame_end)
 			break;
 
-		if (sget_available(&blend_ctx->blend_ctxs, &tmp_ctx, &index))
+		if (sget_available(&blend_ctx->blend_ctxs, (void**)&tmp_ctx, &index))
 		{
 			tmp_ctx = calloc(1, sizeof(BlendThreadContext));
 			if (!tmp_ctx)
@@ -410,7 +412,7 @@ char finish_blending(BlendContext* blend_ctx)
 			flag = 0;
 			for (int j = 0; j < blend_ctx->input_frames.elements.size; j++)
 			{
-				if (get(&blend_ctx->input_frames.elements, j, &tmp_frame))
+				if (get(&blend_ctx->input_frames.elements, j, (void**)&tmp_frame))
 				{
 					fprintf(stderr, "queue get error\n");
 					return 1;
@@ -464,7 +466,7 @@ char finish_blending(BlendContext* blend_ctx)
 
 	while (blend_ctx->blend_threads.size)
 	{
-		front(&blend_ctx->blend_threads, &tmp_thread);
+		front(&blend_ctx->blend_threads, (void**)&tmp_thread);
 		qremove(&blend_ctx->blend_threads);
 		join_thread(tmp_thread);
 		tmp_ctx = tmp_thread->params;
@@ -494,15 +496,15 @@ void free_blending(BlendContext* blend_ctx)
 	Thread* tmp_thread;
 	while (blend_ctx->blend_threads.size)
 	{
-		if (front(&blend_ctx->blend_threads, &tmp_thread))
+		if (front(&blend_ctx->blend_threads, (void**)&tmp_thread))
 		{
 			fprintf(stderr, "queue front error\n");
-			return 1;
+			return;
 		}
 		if (qremove(&blend_ctx->blend_threads))
 		{
 			fprintf(stderr, "queue remove error\n");
-			return 1;
+			return;
 		}
 		join_thread(tmp_thread);
 		free(tmp_thread);
@@ -511,10 +513,10 @@ void free_blending(BlendContext* blend_ctx)
 	BlendThreadContext* tmp_ctx;
 	while (blend_ctx->blend_ctxs.elements.size)
 	{
-		if (sget(&blend_ctx->blend_ctxs, 0, &tmp_ctx))
+		if (sget(&blend_ctx->blend_ctxs, 0, (void**)&tmp_ctx))
 		{
 			fprintf(stderr, "stock get error\n");
-			return 1;
+			return;
 		}
 		free(tmp_ctx->input_frames);
 		free(tmp_ctx->weights);
@@ -525,13 +527,13 @@ void free_blending(BlendContext* blend_ctx)
 	RGBFrame* tmp_frame;
 	while (blend_ctx->input_frames.availble.size)
 	{
-		sget(&blend_ctx->input_frames, 0, &tmp_frame);
+		sget(&blend_ctx->input_frames, 0, (void**)&tmp_frame);
 		free_RGBFrame(tmp_frame);
 		sremove(&blend_ctx->input_frames);
 	}
 	while (blend_ctx->created_frames.size)
 	{
-		get(&blend_ctx->created_frames, 0, &tmp_frame);
+		get(&blend_ctx->created_frames, 0, (void**)&tmp_frame);
 		free_RGBFrame(tmp_frame);
 		qremove(&blend_ctx->created_frames);
 	}
@@ -554,7 +556,7 @@ void* get_output_frame(BlendContext* blend_ctx)
 	if (blend_ctx->created_frames.size < 1)
 		return 0;
 	RGBFrame* tmp;
-	if (front(&blend_ctx->created_frames, &tmp))
+	if (front(&blend_ctx->created_frames, (void**)&tmp))
 		return 0;
 	qremove(&blend_ctx->created_frames);
 	void* tmp2 = tmp->frame_data;
