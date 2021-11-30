@@ -23,7 +23,7 @@ char init_blending(BlendContext** blend_ctx, BlendSettings* settings)
 		fprintf(stderr, "no height given\n");
 		return 1;
 	}
-	if (settings->frame_type >= FTYPES_COUNT)
+	if (settings->frame_type >= FTYPES_COUNT || !settings->frame_type)
 	{
 		fprintf(stderr, "no input frame type given\n");
 		return 1;
@@ -271,7 +271,6 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 
 		tmp_ctx->blend_funct = blend_ctx->settings->blend_funct;
 		tmp_ctx->element_count = blend_ctx->settings->width * blend_ctx->settings->height * 3;
-		tmp_ctx->frame_type = blend_ctx->settings->frame_type;
 		tmp_ctx->count = blend_ctx->frame_end - blend_ctx->frame_begin + 1 - blend_ctx->weight_offset;
 		tmp_ctx->exit = 0;
 
@@ -336,10 +335,6 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 	return 0;
 }
 
-//flush
-// loop launch last threads
-// wait free threads
-
 char finish_blending(BlendContext* blend_ctx)
 {
 	uint64_t simulated_input = blend_ctx->total_input_frames;
@@ -403,7 +398,6 @@ char finish_blending(BlendContext* blend_ctx)
 
 		tmp_ctx->blend_funct = blend_ctx->settings->blend_funct;
 		tmp_ctx->element_count = blend_ctx->settings->width * blend_ctx->settings->height * 3;
-		tmp_ctx->frame_type = blend_ctx->settings->frame_type;
 		tmp_ctx->count = blend_ctx->frame_end - blend_ctx->frame_begin + 1;
 
 		char flag;

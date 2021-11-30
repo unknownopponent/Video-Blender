@@ -22,8 +22,8 @@ typedef struct VBlenderSettings
 
 	//32 or 64
 	char internal_data_bits;
+
 	char internal_floating;
-	RGBFrameType converted_rgb_type;
 
 } VBlenderSettings;
 
@@ -36,8 +36,7 @@ typedef struct VBlenderAddSettings
 	void* tmp_array[2];
 	int* linesize;
 	void* converted_rgb_data;
-	char converted_rgb_type;
-	char raw_rgb_type;
+	void (*convert_funct)(void*, void*, uint64_t);
 	uint64_t rgb_size;
 	BlendContext* blend_ctx;
 } VBlenderAddSettings;

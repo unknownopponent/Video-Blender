@@ -15,7 +15,6 @@ typedef struct BlendThreadContext
 	//input
 	void* blend_funct;
 	uint64_t element_count;
-	char frame_type;
 	RGBFrame** input_frames;
 	void* weights;
 	uint64_t count;

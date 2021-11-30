@@ -5,6 +5,8 @@
 #include "utils/Error.h"
 #include "utils/Utils.h"
 
+#include "blendlib/convert.h"
+
 #define _CRT_SECURE_NO_WARNINGS //todo
 
 char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSettings* bsettings, char*** input_files, int* input_files_count, char** output_folder)
@@ -257,7 +259,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 				}
 				else
 				{
-					weight_type = FINT64;
+					weight_type = FUINT64;
 					int64_t* tmpl = malloc(sizeof(int64_t) * tmpa);
 					if (!tmpl)
 					{
@@ -356,34 +358,6 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 	
 	//auto settings
 
-	if (vsettings->internal_floating)
-	{
-		if (vsettings->internal_data_bits == 32)
-			vsettings->converted_rgb_type = FFLOAT32;
-		else if (vsettings->internal_data_bits == 64)
-			vsettings->converted_rgb_type = FFLOAT64;
-		else
-		{
-			fprintf(stderr, "error, invalid internal data bits : %d", vsettings->internal_data_bits);
-			return 1;
-		}
-		if (vsettings->internal_data_bits == 32)
-		{
-			bsettings->blend_funct = blend_float32_float32;
-			bsettings->frame_type = FFLOAT32;
-		}
-		else if (vsettings->internal_data_bits == 64)
-		{
-			bsettings->blend_funct = blend_float64_float64;
-			bsettings->frame_type = FFLOAT64;
-		}
-		else
-		{
-			fprintf(stderr, "\n");
-			return 1;
-		}
-	}
-
 	if (bsettings->weights)
 	{
 		if (vsettings->internal_data_bits == 32)
@@ -402,7 +376,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 				free(bsettings->weights);
 				bsettings->weights = tmpf;
 			}
-			else if (weight_type == FINT64)
+			else if (weight_type == FUINT64)
 			{
 				int* tmpi = malloc(sizeof(int) * bsettings->weights_c);
 				if (!tmpi)
@@ -546,19 +520,28 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	CodingContext input = { 0 };
 	CodingContext output = { 0 };
 	AVDictionary* codec_options = { 0 };
-	AVRational timebase;
-	int width;
-	int height;
+	AVRational timebase = { 0 };
+	int width = 0;
+	int height = 0;
 	int linesize[2] = { 0 };
-	int bits_per_channel;
-	int bytes_per_channel;
-	int rgb_count;
-	int raw_rgb_size;
-	int converted_rgb_size;
-	enum AVPixelFormat rgb_format;
+	int bits_per_channel = 0;
+	int bytes_per_channel = 0;
+	int rgb_count = 0;
+	int raw_rgb_size = 0;
+	int converted_rgb_size = 0;
+	enum AVPixelFormat rgb_format = 0;
 	VBlenderAddSettings asettings = { 0 };
 	VBlenderEncodeSettings esettings = { 0 };
 	BlendContext* blend_ctx = 0;
+	Thread add_thread = { 0 };
+	char add_thread_running = 0;
+	Thread encode_thread = { 0 };
+	char encode_thread_running = 0;
+	AVFrame* frame1 = 0;
+	AVFrame* frame2 = 0;
+	char on_one = 1;
+	AVFrame* in_frame = 0;
+	AVPacket* packet = 0;
 
 	if (open_input(&input, vsettings->input_file, vsettings->decoder))
 	{
@@ -608,60 +591,91 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 
 	raw_rgb_size = rgb_count * bytes_per_channel;
 
-	switch (bytes_per_channel)
+	if (vsettings->internal_floating)
 	{
-	case 1:
-	{
-		rgb_format = AV_PIX_FMT_RGB24;
-		asettings.raw_rgb_type = FINT8;
-		if (!vsettings->internal_floating)
+		if (bytes_per_channel == 1)
 		{
+			rgb_format = AV_PIX_FMT_RGB24;
+			esettings.final_rgb_type = FUINT8;
+		}
+		else if (bytes_per_channel == 2)
+		{
+			rgb_format = AV_PIX_FMT_RGB48;
+			esettings.final_rgb_type = FUINT16;
+		}
+		else
+		{
+			fprintf(stderr, "unsupported input data\n");
+			return_code = 1;
+			goto end;
+		}
+		if (vsettings->internal_data_bits == 32)
+		{
+			bsettings->frame_type = FFLOAT32;
+			bsettings->blend_funct = blend_float32_float32;
+			asettings.convert_funct = uint8_float32;
+		}
+		else if (vsettings->internal_data_bits == 64)
+		{
+			bsettings->frame_type = FFLOAT64;
+			bsettings->blend_funct = blend_float64_float64;
+			asettings.convert_funct = uint8_float64;
+		}
+		else
+		{
+			fprintf(stderr, "unsupported input data\n");
+			return_code = 1;
+			goto end;
+		}
+	}
+	else
+	{
+		if (bytes_per_channel == 1)
+		{
+			rgb_format = AV_PIX_FMT_RGB24;
+			bsettings->frame_type = FUINT8;
+			esettings.final_rgb_type = FUINT8;
 			if (vsettings->internal_data_bits == 32)
 			{
-				bsettings->blend_funct = blend_int8_int32;
+				bsettings->blend_funct = blend_uint8_int32;
 			}
 			else if (vsettings->internal_data_bits == 64)
 			{
-				bsettings->blend_funct = blend_int8_int64;
+				bsettings->blend_funct = blend_uint8_int64;
 			}
 			else
 			{
-				fprintf(stderr, "invalid internal data bits %d\n", vsettings->internal_data_bits);
+				fprintf(stderr, "unsupported input data\n");
 				return_code = 1;
 				goto end;
 			}
 		}
-		break;
-	}
-	case 2:
-	{
-		rgb_format = AV_PIX_FMT_RGB48;
-		asettings.raw_rgb_type = FINT16;
-		if (!vsettings->internal_floating)
+		else if (bytes_per_channel == 2)
 		{
+			rgb_format = AV_PIX_FMT_RGB48;
+			bsettings->frame_type = FUINT16;
+			esettings.final_rgb_type = FUINT16;
 			if (vsettings->internal_data_bits == 32)
 			{
-				bsettings->blend_funct = blend_int16_int32;
+				bsettings->blend_funct = blend_uint16_int32;
 			}
 			else if (vsettings->internal_data_bits == 64)
 			{
-				bsettings->blend_funct = blend_int16_int64;
+				bsettings->blend_funct = blend_uint16_int64;
 			}
 			else
 			{
-				fprintf(stderr, "invalid internal data bits %d\n", vsettings->internal_data_bits);
+				fprintf(stderr, "unsupported input data\n");
 				return_code = 1;
 				goto end;
 			}
 		}
-		break;
-	}
-	default:
-	{
-		fprintf(stderr, "unsupported input data\n");
-		return_code = 1;
-		goto end;
-	}
+		else
+		{
+			fprintf(stderr, "unsupported input data\n");
+			return_code = 1;
+			goto end;
+		}
 	}
 
 	bsettings->width = width;
@@ -698,15 +712,14 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 		oom();
 	}
 	asettings.linesize = linesize;
-	converted_rgb_size = rgb_count * type_sizes[vsettings->converted_rgb_type];
 	if (vsettings->internal_floating)
 	{
+		converted_rgb_size = rgb_count * type_sizes[bsettings->frame_type];
 		asettings.converted_rgb_data = malloc(converted_rgb_size);
 		if (!asettings.converted_rgb_data)
 		{
 			oom();
 		}
-		asettings.converted_rgb_type = vsettings->converted_rgb_type;
 	}
 	asettings.rgb_size = raw_rgb_size;
 	asettings.blend_ctx = blend_ctx;
@@ -716,8 +729,7 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	create_mutex(&esettings.packet_mutex);
 	esettings.blend_ctx = blend_ctx;
 	esettings.rgb_count = rgb_count;
-	esettings.output_rgb_type = vsettings->converted_rgb_type;
-	esettings.final_rgb_type = asettings.raw_rgb_type;
+	esettings.output_rgb_type = bsettings->frame_type;
 	esettings.rgb_to_yuv =
 		sws_getContext(width,
 			height,
@@ -752,27 +764,18 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 		/ (float)bsettings->oden
 		* (float)bsettings->onum;
 
-	Thread add_thread = { 0 };
-	char add_thread_running = 0;
-	Thread encode_thread = { 0 };
-	char encode_thread_running = 0;
-
-	AVFrame* frame1 = 0;
+	
 	frame1 = av_frame_alloc();
 	if (!frame1)
 	{
 		oom();
 	}
-	AVFrame* frame2 = 0;
 	frame2 = av_frame_alloc();
 	if (!frame2)
 	{
 		oom();
 	}
-	char on_one = 1;
-	AVFrame* in_frame = frame1;
-
-	AVPacket* packet = 0;
+	in_frame = frame1;
 	packet = av_packet_alloc();
 	if (!packet)
 	{
@@ -898,14 +901,14 @@ end:
 		av_dict_free(&codec_options);
 	if (blend_ctx)
 		free_blending(blend_ctx);
-	/*
+	
 	if (frame1)
 		av_frame_free(&frame1);
 	if (frame2)
 		av_frame_free(&frame2);
 	if (packet)
 		av_packet_free(&packet);
-	*/
+	
 	return 0;
 }
 
@@ -921,14 +924,9 @@ void vblender_add(VBlenderAddSettings* asettings)
 
 	void* rgb_data;
 
-	if (asettings->converted_rgb_data)
+	if (asettings->convert_funct)
 	{
-		if (convert_frame_data(asettings->converted_rgb_data, asettings->converted_rgb_type, asettings->tmp_array[0], asettings->raw_rgb_type, asettings->rgb_size))
-		{
-			fprintf(stderr, "failled to convert frame\n");
-			asettings->exit = 1;
-			return;
-		}
+		asettings->convert_funct(asettings->tmp_array[0], asettings->converted_rgb_data, asettings->rgb_size);
 		rgb_data = asettings->converted_rgb_data;
 	}
 	else
@@ -967,6 +965,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 		}
 		tmp_array[0] = converted_rgb_data;
 	}
+	void (*convert_funct)(void*, void*, uint64_t) = get_convert_function(esettings->output_rgb_type, esettings->final_rgb_type);
 
 	uint64_t encoded_frames = 0;
 
@@ -1029,12 +1028,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 			{
 				if (convertion)
 				{
-					if (convert_frame_data(converted_rgb_data, esettings->final_rgb_type, tmp_frames[i], esettings->output_rgb_type, esettings->rgb_count))
-					{
-						fprintf(stderr, "failled to convert frame\n");
-						esettings->exit = 1;
-						goto end;
-					}
+					convert_funct(tmp_frames[i], converted_rgb_data, esettings->rgb_count);
 				}
 				else
 				{
