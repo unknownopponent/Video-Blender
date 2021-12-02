@@ -591,6 +591,13 @@ void get_interval(int64_t* begin, int64_t* end, uint16_t input_num, uint16_t inp
 
 	if (tmp > tmp2)
 	{
+		while (tmp3 > tmp2)
+		{
+			input_index -= 1;
+			tmp3 = (float)input_num / (float)input_den * (float)(input_index - 1);
+		}
+		tmp = (float)input_num / (float)input_den * (float)input_index;
+		tmp3 = (float)input_num / (float)input_den * (float)(input_index - 1);
 		if (range % 2)
 		{
 			if (tmp2 - tmp < tmp - tmp3)

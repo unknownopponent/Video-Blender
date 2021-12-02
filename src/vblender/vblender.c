@@ -762,7 +762,8 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	esettings.pts_step = (float)output.format_ctx->streams[output.video_stream_index]->time_base.num
 		* (float)output.format_ctx->streams[output.video_stream_index]->time_base.den
 		/ (float)bsettings->oden
-		* (float)bsettings->onum;
+		* (float)bsettings->onum
+		;
 
 	
 	frame1 = av_frame_alloc();
@@ -840,10 +841,11 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 			return_code = 1;
 			goto end;
 		}
-		printf("\r%d/%d frames(%f%%), %d/%d threads", 
-			read_frames, 
+		printf("\r%d/%d input frames(%f%%), %lld encoded frames, %d/%d threads",
+			read_frames,
 			input.format_ctx->streams[input.video_stream_index]->nb_frames,
 			(float)read_frames / (float)input.format_ctx->streams[input.video_stream_index]->nb_frames * 100.0f,
+			*esettings.encoded_frames,
 			blend_ctx->blend_threads.size, 
 			bsettings->max_blend_threads);
 	}
@@ -968,6 +970,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 	void (*convert_funct)(void*, void*, uint64_t) = get_convert_function(esettings->output_rgb_type, esettings->final_rgb_type);
 
 	uint64_t encoded_frames = 0;
+	esettings->encoded_frames = &encoded_frames;
 
 	AVPacket* packet = av_packet_alloc();
 	if (!packet)
@@ -1042,7 +1045,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 					esettings->out_frame->data,
 					esettings->out_frame->linesize);
 
-				esettings->out_frame->pts = esettings->pts_step * (float)encoded_frames;
+				esettings->out_frame->pts = (uint64_t)(esettings->pts_step * (float)encoded_frames);
 
 				if ((ret = avcodec_send_frame(esettings->output->codec_ctx, esettings->out_frame)) < 0)
 				{

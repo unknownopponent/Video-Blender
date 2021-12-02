@@ -193,16 +193,12 @@ char open_encoder(CodingContext* ctx, char* encoder_name, AVDictionary** codec_o
         return 1;
     }
 
-    if ((ret = avcodec_parameters_to_context(ctx->codec_ctx, input_params)) < 0)
-    {
-        fprintf(stderr, "failled to alloc encoder context\n");
-        print_av_error(ret);
-        avcodec_free_context(&ctx->codec_ctx);
-        return 1;
-    }
-
     ctx->codec_ctx->profile = FF_PROFILE_UNKNOWN;
     ctx->codec_ctx->time_base = timebase;
+    ctx->codec_ctx->width = input_params->width;
+    ctx->codec_ctx->height = input_params->height;
+    ctx->codec_ctx->sample_aspect_ratio = input_params->sample_aspect_ratio;
+    ctx->codec_ctx->pix_fmt = input_params->format;
 
     if (ctx->format_ctx->oformat->flags & AVFMT_GLOBALHEADER)
         ctx->codec_ctx->flags |= AVFMT_GLOBALHEADER;

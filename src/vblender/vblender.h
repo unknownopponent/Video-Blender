@@ -63,6 +63,8 @@ typedef struct VBlenderEncodeSettings
 	AVFrame* out_frame;
 	float pts_step;
 
+	uint64_t* encoded_frames;
+
 } VBlenderEncodeSettings;
 
 char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSettings* bsettings, char*** input_files, int* input_files_count, char** output_folder);
