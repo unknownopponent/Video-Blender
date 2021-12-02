@@ -1,13 +1,12 @@
 #include "vblender.h"
 
 #include <libswscale/swscale.h>
-//#include <libavutil/opt.h>
+
 #include "utils/Error.h"
 #include "utils/Utils.h"
 
 #include "blendlib/convert.h"
-
-#define _CRT_SECURE_NO_WARNINGS //todo
+#include "blendlib/blending.h"
 
 char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSettings* bsettings, char*** input_files, int* input_files_count, char** output_folder)
 {
@@ -42,16 +41,12 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 			i += 1;
 			*input_files = malloc(sizeof(char*) * tmpa);
 			if (!*input_files)
-			{
-				oom();
-			}
+				oom(tmpa);
 			for (int j = 0; j < tmpa; j++)
 			{
 				(*input_files)[j] = malloc(strlen(args[i + j]) +1);
 				if (!(*input_files)[j])
-				{
-					oom();
-				}
+					oom(strlen(args[i + j]) + 1);
 				strcpy((*input_files)[j], args[i + j]);
 			}
 			*input_files_count = tmpa;
@@ -67,9 +62,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 			i += 1;
 			*output_folder = malloc(strlen(args[i]) + 1);
 			if (!*output_folder)
-			{
-				oom();
-			}
+				oom(strlen(args[i]) + 1);
 			strcpy(*output_folder, args[i]);
 		}
 		else if (!strcmp(args[i], "-dec"))
@@ -82,9 +75,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 			i += 1;
 			vsettings->decoder = malloc(strlen(args[i]) +1);
 			if (!vsettings->decoder)
-			{
-				oom();
-			}
+				oom(strlen(args[i]) + 1);
 			strcpy(vsettings->decoder, args[i]);
 		}
 		else if (!strcmp(args[i], "-enc"))
@@ -97,9 +88,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 			i += 1;
 			vsettings->encoder = malloc(strlen(args[i]) + 1);
 			if (!vsettings->encoder)
-			{
-				oom();
-			}
+				oom(strlen(args[i]) + 1);
 			strcpy(vsettings->encoder, args[i]);
 		}
 		else if (!strcmp(args[i], "-enc_opt"))
@@ -117,9 +106,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 			}
 			vsettings->encoder_options = malloc(sizeof(char*) * tmpa * 2);
 			if (!vsettings->encoder_options)
-			{
-				oom();
-			}
+				oom(tmpa * 2);
 			for (int j = 0; j < tmpa; j++)
 			{
 				tmpb = 0;
@@ -134,17 +121,13 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 				}
 				vsettings->encoder_options[j * 2] = malloc(tmpb + 1);
 				if (!vsettings->encoder_options[j * 2])
-				{
-					oom();
-				}
+					oom(tmpb + 1);
 				memcpy(vsettings->encoder_options[j * 2], args[i + j], tmpb);
 				vsettings->encoder_options[j * 2][tmpb] = 0;
 				int tmp_len = strlen(args[i + j]) - tmpb;
 				vsettings->encoder_options[j * 2 + 1] = malloc(tmp_len);
 				if (!vsettings->encoder_options[j * 2 + 1])
-				{
-					oom();
-				}
+					oom(tmp_len);
 				memcpy(vsettings->encoder_options[j * 2 +1], args[i + j] + tmpb +1, tmp_len);
 			}
 			vsettings->encoder_options_count = tmpa;
@@ -246,9 +229,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 					weight_type = FFLOAT64;
 					double* tmpd = malloc(sizeof(double) * tmpa);
 					if (!tmpd)
-					{
-						oom();
-					}
+						oom(sizeof(double) * tmpa);
 					char* tmpc = 0;
 					for (int j = 0; j < tmpa; j++)
 					{
@@ -262,9 +243,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 					weight_type = FUINT64;
 					int64_t* tmpl = malloc(sizeof(int64_t) * tmpa);
 					if (!tmpl)
-					{
-						oom();
-					}
+						oom(sizeof(int64_t) * tmpa);
 					char* tmpc = 0;
 					for (int j = 0; j < tmpa; j++)
 					{
@@ -295,47 +274,33 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 	{
 		*output_folder = malloc(9);
 		if (!*output_folder)
-		{
-			oom();
-		}
+			oom(9);
 		memcpy(*output_folder, "./output", 9);
 	}
 	if (!vsettings->encoder)
 	{
 		vsettings->encoder = malloc(8);
 		if (!vsettings->encoder)
-		{
-			oom();
-		}
+			oom(8);
 		memcpy(vsettings->encoder, "libx264", 8);
 		vsettings->encoder_options = malloc(sizeof(char*) * 4);
 		if (!vsettings->encoder_options)
-		{
-			oom();
-		}
+			oom(sizeof(char*) * 4);
 		vsettings->encoder_options[0] = malloc(7);
 		if (!vsettings->encoder_options[0])
-		{
-			oom();
-		}
+			oom(7);
 		memcpy(vsettings->encoder_options[0], "preset", 7);
 		vsettings->encoder_options[1] = malloc(10);
 		if (!vsettings->encoder_options[1])
-		{
-			oom();
-		}
+			oom(10);
 		memcpy(vsettings->encoder_options[1], "ultrafast", 10);
 		vsettings->encoder_options[2] = malloc(4);
 		if (!vsettings->encoder_options[2])
-		{
-			oom();
-		}
+			oom(4);
 		memcpy(vsettings->encoder_options[2], "crf", 4);
 		vsettings->encoder_options[3] = malloc(2);
 		if (!vsettings->encoder_options[3])
-		{
-			oom();
-		}
+			oom(2);
 		memcpy(vsettings->encoder_options[3], "0", 2);
 		vsettings->encoder_options_count = 2;
 	}
@@ -366,9 +331,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 			{
 				float* tmpf = malloc(sizeof(float) * bsettings->weights_c);
 				if (!tmpf)
-				{
-					oom();
-				}
+					oom(sizeof(float) * bsettings->weights_c);
 				for (int i = 0; i < bsettings->weights_c; i++)
 				{
 					tmpf[i] = (float)(((double*)bsettings->weights)[i]);
@@ -380,9 +343,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 			{
 				int* tmpi = malloc(sizeof(int) * bsettings->weights_c);
 				if (!tmpi)
-				{
-					oom();
-				}
+					oom(sizeof(int) * bsettings->weights_c);
 				for (int i = 0; i < bsettings->weights_c; i++)
 				{
 					tmpi[i] = (int)(((int64_t*)bsettings->weights)[i]);
@@ -405,9 +366,7 @@ char vblend_parse(char** args, int argc, VBlenderSettings* vsettings, BlendSetti
 		}
 		int* tmpi = malloc(sizeof(int) * bsettings->weights_c);
 		if (!tmpi)
-		{
-			oom();
-		}
+			oom(sizeof(int) * bsettings->weights_c);
 		for (int i = 0; i < bsettings->weights_c; i++)
 		{
 			tmpi[i] = 1;
@@ -468,9 +427,7 @@ int vblend(char** args, int argsc)
 
 		vsettings.output_file = malloc(path_len + filename_len + 2);
 		if (!vsettings.output_file)
-		{
-			oom();
-		}
+			oom(path_len + filename_len + 2);
 		strcpy(vsettings.output_file, output_folder);
 		strcat(vsettings.output_file, "/");
 		strcat(vsettings.output_file, filename);
@@ -708,18 +665,14 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	asettings.height = height;	
 	asettings.tmp_array[0] = malloc(raw_rgb_size);
 	if (!asettings.tmp_array[0])
-	{
-		oom();
-	}
+		oom(raw_rgb_size);
 	asettings.linesize = linesize;
 	if (vsettings->internal_floating)
 	{
 		converted_rgb_size = rgb_count * type_sizes[bsettings->frame_type];
 		asettings.converted_rgb_data = malloc(converted_rgb_size);
 		if (!asettings.converted_rgb_data)
-		{
-			oom();
-		}
+			oom(converted_rgb_size);
 	}
 	asettings.rgb_size = raw_rgb_size;
 	asettings.blend_ctx = blend_ctx;
@@ -750,37 +703,46 @@ char vblend_funct(VBlenderSettings* vsettings, BlendSettings* bsettings)
 	esettings.out_frame = av_frame_alloc();
 	if (!esettings.out_frame)
 	{
-		oom();
+		fprintf(stderr, "failled to av frame alloc\n");
+		return_code = 1;
+		goto end;
 	}
 	esettings.out_frame->format = input.format_ctx->streams[input.video_stream_index]->codecpar->format;
 	esettings.out_frame->width = width;
 	esettings.out_frame->height = height;
 	if (av_frame_get_buffer(esettings.out_frame, 0))
 	{
-		oom();
+		fprintf(stderr, "failled to av get buffer\n");
+		return_code = 1;
+		goto end;
 	}
 	esettings.pts_step = (float)output.format_ctx->streams[output.video_stream_index]->time_base.num
 		* (float)output.format_ctx->streams[output.video_stream_index]->time_base.den
 		/ (float)bsettings->oden
-		* (float)bsettings->onum
-		;
+		* (float)bsettings->onum;
 
 	
 	frame1 = av_frame_alloc();
 	if (!frame1)
 	{
-		oom();
+		fprintf(stderr, "failled to av frame alloc\n");
+		return_code = 1;
+		goto end;
 	}
 	frame2 = av_frame_alloc();
 	if (!frame2)
 	{
-		oom();
+		fprintf(stderr, "failled to av frame alloc\n");
+		return_code = 1;
+		goto end;
 	}
 	in_frame = frame1;
 	packet = av_packet_alloc();
 	if (!packet)
 	{
-		oom();
+		fprintf(stderr, "failled to av packet alloc\n");
+		return_code = 1;
+		goto end;
 	}
 
 	char flag;
@@ -962,9 +924,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 	{
 		converted_rgb_data = malloc(converted_rgb_size);
 		if (!converted_rgb_data)
-		{
-			oom();
-		}
+			oom(converted_rgb_size);
 		tmp_array[0] = converted_rgb_data;
 	}
 	void (*convert_funct)(void*, void*, uint64_t) = get_convert_function(esettings->output_rgb_type, esettings->final_rgb_type);
@@ -975,7 +935,10 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 	AVPacket* packet = av_packet_alloc();
 	if (!packet)
 	{
-		oom();
+		fprintf(stderr, "failled to av packet alloc\n");
+		print_av_error(ret);
+		esettings->exit = 1;
+		goto end;
 	}
 
 	while (!esettings->finished_read_input || esettings->in_packets.size || esettings->blend_ctx->created_frames.size)
@@ -987,9 +950,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 			tmp_size = tmp_count * sizeof(AVPacket*);
 			tmp_packets = malloc(tmp_size);
 			if (!tmp_packets)
-			{
-				oom();
-			}
+				oom(tmp_size);
 			memcpy(tmp_packets, esettings->in_packets.elements, tmp_size);
 			empty(&esettings->in_packets);
 			unlock_mutex(&esettings->packet_mutex);
@@ -1018,9 +979,7 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 			tmp_count = get_output_frame_count(esettings->blend_ctx);
 			tmp_frames = malloc(tmp_count * sizeof(void*));
 			if (!tmp_frames)
-			{
-				oom();
-			}
+				oom(tmp_count * sizeof(void*));
 			for (uint64_t i = 0; i < tmp_count; i++)
 			{
 				tmp_frames[i] = get_output_frame(esettings->blend_ctx);
@@ -1086,6 +1045,34 @@ void vblender_encode(VBlenderEncodeSettings* esettings)
 		{
 			sleep_milli(1);
 		}
+	}
+
+	//flush encoder and encode last frames
+	if ((ret = avcodec_send_frame(esettings->output->codec_ctx, 0)) < 0)
+	{
+		fprintf(stderr, "failled to send frame to codec\n");
+		print_av_error(ret);
+		esettings->exit = 1;
+		goto end;
+	}
+
+	while ((ret = avcodec_receive_packet(esettings->output->codec_ctx, packet)) >= 0)
+	{
+		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+			break;
+
+		packet->stream_index = esettings->output->video_stream_index;
+
+		ret = av_interleaved_write_frame(esettings->output->format_ctx, packet);
+		if (ret < 0)
+		{
+			fprintf(stderr, "failled to write packet\n");
+			print_av_error(ret);
+			esettings->exit = 1;
+			goto end;
+		}
+
+		av_packet_unref(packet);
 	}
 	
 	end:

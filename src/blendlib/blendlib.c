@@ -1,8 +1,13 @@
 #include "blendlib.h"
 
-#include "../utils/Error.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-#include <string.h>
+inline void oom(uint64_t size)
+{
+	fprintf(stderr, "out of memory %ulld\n", size);
+	exit(1);
+}
 
 char init_blending(BlendContext** blend_ctx, BlendSettings* settings)
 {
@@ -63,21 +68,15 @@ char init_blending(BlendContext** blend_ctx, BlendSettings* settings)
 
 	BlendContext* ctx = malloc(sizeof(BlendContext));
 	if (!ctx)
-	{
-		oom();
-	}
+		oom(sizeof(BlendContext));
 	
 	ctx->settings = malloc(sizeof(BlendSettings));
 	if (!ctx->settings)
-	{
-		oom();
-	}
+		oom(sizeof(BlendSettings));
 	memcpy(ctx->settings, settings, sizeof(BlendSettings));
 	ctx->settings->weights = malloc(settings->internal_size * settings->weights_c);
 	if (!ctx->settings->weights)
-	{
-		oom();
-	}
+		oom(settings->internal_size * settings->weights_c);
 	memcpy(ctx->settings->weights, settings->weights, settings->internal_size * settings->weights_c);
 
 	init_queue(&ctx->blend_threads, sizeof(Thread*));
@@ -191,10 +190,7 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 	int index;
 	if (sget_available(&blend_ctx->input_frames, (void**)&tmp_frame, &index))
 	{
-		if (alloc_RGBFrame(&tmp_frame, blend_ctx->total_input_frames, blend_ctx->settings->width, blend_ctx->settings->height, type_sizes[blend_ctx->settings->frame_type]))
-		{
-			oom();
-		}
+		alloc_RGBFrame(&tmp_frame, blend_ctx->total_input_frames, blend_ctx->settings->width, blend_ctx->settings->height, type_sizes[blend_ctx->settings->frame_type]);
 		if (sadd(&blend_ctx->input_frames, tmp_frame))
 		{
 			fprintf(stderr, "stock add error\n");
@@ -245,15 +241,13 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 		{
 			tmp_ctx = calloc(1, sizeof(BlendThreadContext));
 			if (!tmp_ctx)
-			{
-				oom();
-			}
+				oom(sizeof(BlendThreadContext));
 			tmp_ctx->input_frames = malloc(sizeof(RGBFrame*) * blend_ctx->settings->weights_c);
 			tmp_ctx->weights = malloc(blend_ctx->settings->weights_c * blend_ctx->settings->internal_size);
-			if (!tmp_ctx->weights || !tmp_ctx->input_frames)
-			{
-				oom();
-			}
+			if (!tmp_ctx->input_frames)
+				oom(sizeof(RGBFrame*) * blend_ctx->settings->weights_c);
+			if (!!tmp_ctx->weights)
+				oom(blend_ctx->settings->weights_c * blend_ctx->settings->internal_size);
 			if (sadd(&blend_ctx->blend_ctxs, tmp_ctx))
 			{
 				fprintf(stderr, "stock add error\n");
@@ -300,16 +294,11 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 		}
 		
 		memcpy(tmp_ctx->weights, (uint8_t*)blend_ctx->settings->weights + blend_ctx->weight_offset * blend_ctx->settings->internal_size, blend_ctx->settings->internal_size * tmp_ctx->count);
-		if (alloc_RGBFrame(&tmp_ctx->result_frame, 0, blend_ctx->settings->width, blend_ctx->settings->height, type_sizes[blend_ctx->settings->frame_type]))
-		{
-			oom();
-		}
+		alloc_RGBFrame(&tmp_ctx->result_frame, 0, blend_ctx->settings->width, blend_ctx->settings->height, type_sizes[blend_ctx->settings->frame_type]);
 
 		tmp_thread = malloc(sizeof(Thread));
 		if (!tmp_thread)
-		{
-			oom();
-		}
+			oom(sizeof(Thread));
 
 		tmp_thread->function = blend;
 		tmp_thread->params = tmp_ctx;
@@ -372,15 +361,13 @@ char finish_blending(BlendContext* blend_ctx)
 		{
 			tmp_ctx = calloc(1, sizeof(BlendThreadContext));
 			if (!tmp_ctx)
-			{
-				oom();
-			}
+				oom(sizeof(BlendThreadContext));
 			tmp_ctx->input_frames = malloc(sizeof(RGBFrame*) * blend_ctx->settings->weights_c);
 			tmp_ctx->weights = malloc(blend_ctx->settings->weights_c * blend_ctx->settings->internal_size);
-			if (!tmp_ctx->weights || !tmp_ctx->input_frames)
-			{
-				oom();
-			}
+			if (!tmp_ctx->input_frames)
+				oom(sizeof(RGBFrame*) * blend_ctx->settings->weights_c);
+			if (!!tmp_ctx->weights)
+				oom(blend_ctx->settings->weights_c * blend_ctx->settings->internal_size);
 			if (sadd(&blend_ctx->blend_ctxs, tmp_ctx))
 			{
 				fprintf(stderr, "stock add error\n");
@@ -426,17 +413,12 @@ char finish_blending(BlendContext* blend_ctx)
 		}
 
 		memcpy(tmp_ctx->weights, (uint8_t*)blend_ctx->settings->weights + (blend_ctx->settings->weights_c - tmp_ctx->count) * blend_ctx->settings->internal_size, blend_ctx->settings->internal_size * tmp_ctx->count);
-		if (alloc_RGBFrame(&tmp_ctx->result_frame, 0, blend_ctx->settings->width, blend_ctx->settings->height, type_sizes[blend_ctx->settings->frame_type]))
-		{
-			oom();
-		}
+		alloc_RGBFrame(&tmp_ctx->result_frame, 0, blend_ctx->settings->width, blend_ctx->settings->height, type_sizes[blend_ctx->settings->frame_type]);
 		tmp_ctx->count -= blend_ctx->weight_offset;
 
 		tmp_thread = malloc(sizeof(Thread));
 		if (!tmp_thread)
-		{
-			oom();
-		}
+			oom(sizeof(Thread));
 
 		tmp_thread->function = blend;
 		tmp_thread->params = tmp_ctx;
@@ -569,9 +551,7 @@ void blend(BlendThreadContext* ctx)
 
 	void** in_frames = malloc(ctx->count * sizeof(void*));
 	if (!in_frames)
-	{
-		oom();
-	}
+		oom(ctx->count * sizeof(void*));
 	for (int i = 0; i < ctx->count; i++)
 	{
 		in_frames[i] = ctx->input_frames[i]->frame_data;

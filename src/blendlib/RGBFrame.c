@@ -1,25 +1,26 @@
 #include "RGBFrame.h"
 
-#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "../utils/Error.h"
+inline void oom(uint64_t size)
+{
+	fprintf(stderr, "out of memory %ulld\n", size);
+	exit(1);
+}
 
 int alloc_RGBFrame(RGBFrame** frame, uint64_t id, uint64_t width, uint64_t height, uint64_t data_size)
 {
 
 	RGBFrame* tmp_frame = malloc(sizeof(RGBFrame));
 	if (!tmp_frame)
-	{
-		oom();
-	}
+		oom(sizeof(RGBFrame));
 
 	tmp_frame->id = id;
 	
 	tmp_frame->frame_data = malloc(width * height * 3 * data_size);
 	if (!tmp_frame->frame_data)
-	{
-		oom();
-	}
+		oom(width * height * 3 * data_size);
 	
 	*frame = tmp_frame;
 

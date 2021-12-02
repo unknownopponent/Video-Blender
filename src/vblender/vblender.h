@@ -1,9 +1,13 @@
 #pragma once
 
+#ifdef _WIN32 
+#define _CRT_SECURE_NO_WARNINGS
+#include <Windows.h>
+#endif
+
 #include "Coding.h"
 
 #include "blendlib/blendlib.h"
-#include "blendlib/blending.h"
 
 typedef struct VBlenderSettings
 {
