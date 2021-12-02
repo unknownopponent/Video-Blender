@@ -5,7 +5,7 @@
 
 inline void oom(uint64_t size)
 {
-	fprintf(stderr, "out of memory %ulld\n", size);
+	fprintf(stderr, "out of memory %lld\n", size);
 	exit(1);
 }
 

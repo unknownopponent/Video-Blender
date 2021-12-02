@@ -5,7 +5,7 @@
 
 inline void oom(uint64_t size)
 {
-	fprintf(stderr, "out of memory %ulld\n", size);
+	fprintf(stderr, "out of memory %lld\n", size);
 	exit(1);
 }
 
@@ -246,7 +246,7 @@ char add_frame(BlendContext* blend_ctx, void* frame_data)
 			tmp_ctx->weights = malloc(blend_ctx->settings->weights_c * blend_ctx->settings->internal_size);
 			if (!tmp_ctx->input_frames)
 				oom(sizeof(RGBFrame*) * blend_ctx->settings->weights_c);
-			if (!!tmp_ctx->weights)
+			if (!tmp_ctx->weights)
 				oom(blend_ctx->settings->weights_c * blend_ctx->settings->internal_size);
 			if (sadd(&blend_ctx->blend_ctxs, tmp_ctx))
 			{
@@ -366,7 +366,7 @@ char finish_blending(BlendContext* blend_ctx)
 			tmp_ctx->weights = malloc(blend_ctx->settings->weights_c * blend_ctx->settings->internal_size);
 			if (!tmp_ctx->input_frames)
 				oom(sizeof(RGBFrame*) * blend_ctx->settings->weights_c);
-			if (!!tmp_ctx->weights)
+			if (!tmp_ctx->weights)
 				oom(blend_ctx->settings->weights_c * blend_ctx->settings->internal_size);
 			if (sadd(&blend_ctx->blend_ctxs, tmp_ctx))
 			{
