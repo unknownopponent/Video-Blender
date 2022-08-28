@@ -29,6 +29,10 @@ SSE41_TARGET void weightedmean_u8_f32_sse41(uint8_t** blocks, float* weights, ui
 
 SSE41_TARGET void weightedmean_u8_f32_sse41_nt(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result);
 
+FMA_TARGET void weightedmean_u8_f32_fma128(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result);
+
+FMA_TARGET void weightedmean_u8_f32_fma128_nt(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result);
+
 AVX2_TARGET void weightedmean_u8_i32_avx2_shift(uint8_t** blocks, int32_t* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result);
 
 AVX2_TARGET void weightedmean_u8_i32_avx2_nt_shift(uint8_t** blocks, int32_t* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result);
@@ -36,5 +40,9 @@ AVX2_TARGET void weightedmean_u8_i32_avx2_nt_shift(uint8_t** blocks, int32_t* we
 AVX2_TARGET void weightedmean_u8_f32_avx2(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result);
 
 AVX2_TARGET void weightedmean_u8_f32_avx2_nt(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result);
+
+FMA_AVX2_TARGET void weightedmean_u8_f32_fma_avx2(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result);
+
+FMA_AVX2_TARGET void weightedmean_u8_f32_fma_avx2_nt(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result);
 
 #endif

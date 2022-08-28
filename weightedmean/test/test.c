@@ -42,7 +42,7 @@ char test()
 
 	weightedmean_u8((void*)blocks, weightsi64, 3, 512, reference);
 
-	size_t count = 14;
+	size_t count = 18;
 
 	void* functions[] = {
 		weightedmean_u8_i64,
@@ -55,10 +55,14 @@ char test()
 		weightedmean_u8_i32_sse41_nt_shift,
 		weightedmean_u8_f32_sse41,
 		weightedmean_u8_f32_sse41_nt,
+		weightedmean_u8_f32_fma128,
+		weightedmean_u8_f32_fma128_nt,
 		weightedmean_u8_i32_avx2_shift,
 		weightedmean_u8_i32_avx2_nt_shift,
 		weightedmean_u8_f32_avx2,
-		weightedmean_u8_f32_avx2_nt
+		weightedmean_u8_f32_avx2_nt,
+		weightedmean_u8_f32_fma_avx2,
+		weightedmean_u8_f32_fma_avx2_nt
 	};
 
 	char* functions_names[] = {
@@ -72,10 +76,14 @@ char test()
 		"weightedmean_u8_i32_sse41_nt_shift",
 		"weightedmean_u8_f32_sse41",
 		"weightedmean_u8_f32_sse41_nt",
+		"weightedmean_u8_f32_fma128",
+		"weightedmean_u8_f32_fma128_nt",
 		"weightedmean_u8_i32_avx2_shift",
 		"weightedmean_u8_i32_avx2_nt_shift",
 		"weightedmean_u8_f32_avx2",
-		"weightedmean_u8_f32_avx2_nt"
+		"weightedmean_u8_f32_avx2_nt",
+		"weightedmean_u8_f32_fma_avx2",
+		"weightedmean_u8_f32_fma_avx2_nt"
 	};
 
 	void* weights[] = {
@@ -89,8 +97,12 @@ char test()
 		weightsi32,
 		weightsf,
 		weightsf,
+		weightsf,
+		weightsf,
 		weightsi32,
 		weightsi32,
+		weightsf,
+		weightsf,
 		weightsf,
 		weightsf
 	};
@@ -155,7 +167,7 @@ char benchmark()
 
 	uint64_t diff;
 
-	size_t count = 14;
+	size_t count = 18;
 
 	void* functions[] = {
 		weightedmean_u8_i64,
@@ -168,10 +180,14 @@ char benchmark()
 		weightedmean_u8_i32_sse41_nt_shift,
 		weightedmean_u8_f32_sse41,
 		weightedmean_u8_f32_sse41_nt,
+		weightedmean_u8_f32_fma128,
+		weightedmean_u8_f32_fma128_nt,
 		weightedmean_u8_i32_avx2_shift,
 		weightedmean_u8_i32_avx2_nt_shift,
 		weightedmean_u8_f32_avx2,
-		weightedmean_u8_f32_avx2_nt
+		weightedmean_u8_f32_avx2_nt,
+		weightedmean_u8_f32_fma_avx2,
+		weightedmean_u8_f32_fma_avx2_nt
 	};
 
 	char* functions_names[] = {
@@ -185,10 +201,14 @@ char benchmark()
 		"weightedmean_u8_i32_sse41_nt_shift",
 		"weightedmean_u8_f32_sse41",
 		"weightedmean_u8_f32_sse41_nt",
+		"weightedmean_u8_f32_fma128",
+		"weightedmean_u8_f32_fma128_nt",
 		"weightedmean_u8_i32_avx2_shift",
 		"weightedmean_u8_i32_avx2_nt_shift",
 		"weightedmean_u8_f32_avx2",
-		"weightedmean_u8_f32_avx2_nt"
+		"weightedmean_u8_f32_avx2_nt",
+		"weightedmean_u8_f32_fma_avx2",
+		"weightedmean_u8_f32_fma_avx2_nt"
 	};
 
 	void* weights[] = {
@@ -202,8 +222,12 @@ char benchmark()
 		weightsi32,
 		weightsf,
 		weightsf,
+		weightsf,
+		weightsf,
 		weightsi32,
 		weightsi32,
+		weightsf,
+		weightsf,
 		weightsf,
 		weightsf
 	};

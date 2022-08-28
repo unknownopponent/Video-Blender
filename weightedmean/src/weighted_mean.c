@@ -306,6 +306,8 @@ SSE2_TARGET void weightedmean_u8_i64_sse2_nt(uint8_t** blocks, int64_t* weights,
 			result[i] = (uint8_t)(tmp / total_weights);
 		}
 	}
+	
+	_mm_sfence();
 }
 
 
@@ -357,6 +359,8 @@ SSE2_TARGET void weightedmean_u8_f64_sse2_nt(uint8_t** blocks, double* weights, 
 
 		result[i] = (uint8_t)(tmp1 * total_weights);
 	}
+	
+	_mm_sfence();
 }
 
 SSE41_TARGET void weightedmean_u8_i32_sse41_shift(uint8_t** blocks, int32_t* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result)
@@ -627,6 +631,8 @@ SSE41_TARGET void weightedmean_u8_i32_sse41_nt_shift(uint8_t** blocks, int32_t* 
 
 		result[i] = (uint8_t)(tmp >> shift);
 	}
+	
+	_mm_sfence();
 }
 
 SSE41_TARGET void weightedmean_u8_f32_sse41(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result)
@@ -933,6 +939,298 @@ SSE41_TARGET void weightedmean_u8_f32_sse41_nt(uint8_t** blocks, float* weights,
 
 		result[i] = (uint8_t)(tmp * total_weights);
 	}
+	
+	_mm_sfence();
+}
+
+FMA_TARGET void weightedmean_u8_f32_fma128(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result)
+{
+	float total_weights = 0.0f;
+	for (size_t i = 0; i < block_count; i++)
+		total_weights += weights[i];
+
+	total_weights = 1.0f / total_weights;
+
+	//use classic division
+	
+	__m128i shuf1, shuf2, shuf3, shuf4, shuf5;
+	__m128 div;
+	__m128 weight;
+	__m128 tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
+	__m128 xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7;
+	__m128i tmpi1, tmpi2, tmpi3, tmpi4, tmpi5, tmpi6, tmpi7, tmpi8;
+
+	div = _mm_set_ps1(total_weights);
+
+	static int8_t unpack[] = { 0, -1, -1, -1, 1, -1, -1, -1, 2, -1, -1, -1, 3, -1, -1, -1 };
+	shuf1 = _mm_lddqu_si128((__m128i*)unpack);
+	static int8_t pack1[] = { 0, 4, 8, 12, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+	shuf2 = _mm_lddqu_si128((__m128i*)pack1);
+	static int8_t pack2[] = { -1, -1, -1, -1, 0, 4, 8, 12, -1, -1, -1, -1, -1, -1, -1, -1 };
+	shuf3 = _mm_lddqu_si128((__m128i*)pack2);
+	static int8_t pack3[] = { -1, -1, -1, -1, -1, -1, -1, -1, 0, 4, 8, 12, -1, -1, -1, -1 };
+	shuf4 = _mm_lddqu_si128((__m128i*)pack3);
+	static int8_t pack4[] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 4, 8, 12 };
+	shuf5 = _mm_lddqu_si128((__m128i*)pack4);
+
+	for (size_t i = 0; i < (block_element_count & 0xffffffffffffffe0); i += 32)
+	{
+		// nul
+		tmp1 = _mm_set_ps1(0.0f);
+		tmp2 = _mm_set_ps1(0.0f);
+		tmp3 = _mm_set_ps1(0.0f);
+		tmp4 = _mm_set_ps1(0.0f);
+		tmp5 = _mm_set_ps1(0.0f);
+		tmp6 = _mm_set_ps1(0.0f);
+		tmp7 = _mm_set_ps1(0.0f);
+		tmp8 = _mm_set_ps1(0.0f);
+
+		for (size_t j = 0; j < block_count; j++)
+		{
+			//load weights
+			weight = _mm_cvtepi32_ps(_mm_shuffle_epi32(_mm_cvtsi32_si128(weights[j]), 0));
+
+			//load data
+			xmm0 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i)), shuf1));
+			xmm1 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 4)), shuf1));
+			xmm2 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 8)), shuf1));
+			xmm3 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 12)), shuf1));
+			xmm4 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 16)), shuf1));
+			xmm5 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 20)), shuf1));
+			xmm6 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 24)), shuf1));
+			xmm7 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 28)), shuf1));
+
+			tmp1 = _mm_fmadd_ps(xmm0, weight, tmp1);
+			tmp2 = _mm_fmadd_ps(xmm1, weight, tmp2);
+			tmp3 = _mm_fmadd_ps(xmm2, weight, tmp3);
+			tmp4 = _mm_fmadd_ps(xmm3, weight, tmp4);
+			tmp5 = _mm_fmadd_ps(xmm4, weight, tmp5);
+			tmp6 = _mm_fmadd_ps(xmm5, weight, tmp6);
+			tmp7 = _mm_fmadd_ps(xmm6, weight, tmp7);
+			tmp8 = _mm_fmadd_ps(xmm7, weight, tmp8);
+		}
+
+		//division
+
+		tmp1 = _mm_mul_ps(tmp1, div);
+		tmp2 = _mm_mul_ps(tmp2, div);
+		tmp3 = _mm_mul_ps(tmp3, div);
+		tmp4 = _mm_mul_ps(tmp4, div);
+		tmp5 = _mm_mul_ps(tmp5, div);
+		tmp6 = _mm_mul_ps(tmp6, div);
+		tmp7 = _mm_mul_ps(tmp7, div);
+		tmp8 = _mm_mul_ps(tmp8, div);
+		
+		tmp1 = _mm_floor_ps(tmp1);
+		tmp2 = _mm_floor_ps(tmp2);
+		tmp3 = _mm_floor_ps(tmp3);
+		tmp4 = _mm_floor_ps(tmp4);
+		tmp5 = _mm_floor_ps(tmp5);
+		tmp6 = _mm_floor_ps(tmp6);
+		tmp7 = _mm_floor_ps(tmp7);
+		tmp8 = _mm_floor_ps(tmp8);
+
+		tmpi1 = _mm_cvtps_epi32(tmp1);
+		tmpi2 = _mm_cvtps_epi32(tmp2);
+		tmpi3 = _mm_cvtps_epi32(tmp3);
+		tmpi4 = _mm_cvtps_epi32(tmp4);
+		tmpi5 = _mm_cvtps_epi32(tmp5);
+		tmpi6 = _mm_cvtps_epi32(tmp6);
+		tmpi7 = _mm_cvtps_epi32(tmp7);
+		tmpi8 = _mm_cvtps_epi32(tmp8);
+
+		//store
+
+		tmpi1 = _mm_shuffle_epi8(tmpi1, shuf2);
+		tmpi2 = _mm_shuffle_epi8(tmpi2, shuf3);
+		tmpi3 = _mm_shuffle_epi8(tmpi3, shuf4);
+		tmpi4 = _mm_shuffle_epi8(tmpi4, shuf5);
+		tmpi5 = _mm_shuffle_epi8(tmpi5, shuf2);
+		tmpi6 = _mm_shuffle_epi8(tmpi6, shuf3);
+		tmpi7 = _mm_shuffle_epi8(tmpi7, shuf4);
+		tmpi8 = _mm_shuffle_epi8(tmpi8, shuf5);
+		
+		tmpi1 = _mm_or_si128(tmpi1, tmpi2);
+		tmpi3 = _mm_or_si128(tmpi3, tmpi4);
+		tmpi5 = _mm_or_si128(tmpi5, tmpi6);
+		tmpi7 = _mm_or_si128(tmpi7, tmpi8);
+
+		tmpi1 = _mm_or_si128(tmpi1, tmpi3);
+		tmpi5 = _mm_or_si128(tmpi5, tmpi7);
+
+		_mm_storeu_si128((__m128i*)(result + i), tmpi1);
+		_mm_storeu_si128((__m128i*)(result + i + 16), tmpi5);
+	}
+
+	float tmp;
+
+	//last elements
+
+	for (size_t i = block_element_count & 0xffffffffffffffe0; i < block_element_count; i++)
+	{
+		tmp = 0.0f;
+
+		for (size_t j = 0; j < block_count; j++)
+		{
+			tmp += (float)blocks[j][i] * weights[j];
+		}
+
+		result[i] = (uint8_t)(tmp * total_weights);
+	}
+}
+
+FMA_TARGET void weightedmean_u8_f32_fma128_nt(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result)
+{
+	float total_weights = 0.0f;
+	for (size_t i = 0; i < block_count; i++)
+		total_weights += weights[i];
+
+	total_weights = 1.0f / total_weights;
+
+	//use classic division
+
+	__m128i shuf1, shuf2, shuf3, shuf4, shuf5;
+	__m128 div;
+	__m128 weight;
+	__m128 tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
+	__m128 xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7;
+	__m128i tmpi1, tmpi2, tmpi3, tmpi4, tmpi5, tmpi6, tmpi7, tmpi8;
+
+	div = _mm_set_ps1(total_weights);
+
+	static int8_t unpack[] = { 0, -1, -1, -1, 1, -1, -1, -1, 2, -1, -1, -1, 3, -1, -1, -1 };
+	shuf1 = _mm_lddqu_si128((__m128i*)unpack);
+	static int8_t pack1[] = { 0, 4, 8, 12, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+	shuf2 = _mm_lddqu_si128((__m128i*)pack1);
+	static int8_t pack2[] = { -1, -1, -1, -1, 0, 4, 8, 12, -1, -1, -1, -1, -1, -1, -1, -1 };
+	shuf3 = _mm_lddqu_si128((__m128i*)pack2);
+	static int8_t pack3[] = { -1, -1, -1, -1, -1, -1, -1, -1, 0, 4, 8, 12, -1, -1, -1, -1 };
+	shuf4 = _mm_lddqu_si128((__m128i*)pack3);
+	static int8_t pack4[] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 4, 8, 12 };
+	shuf5 = _mm_lddqu_si128((__m128i*)pack4);
+
+	float tmp;
+
+	size_t i;
+
+	// align 16
+
+	for (i = 0; i < (16 - ((size_t)result & 15)); i++)
+	{
+		tmp = 0.0f;
+
+		for (size_t j = 0; j < block_count; j++)
+		{
+			tmp += (float)blocks[j][i] * weights[j];
+		}
+
+		result[i] = (uint8_t)(tmp * total_weights);
+	}
+
+	for (; i < ((block_element_count - 16 + ((size_t)result & 15)) & 0xffffffffffffffe0); i += 32)
+	{
+		// nul
+		tmp1 = _mm_set_ps1(0.0f);
+		tmp2 = _mm_set_ps1(0.0f);
+		tmp3 = _mm_set_ps1(0.0f);
+		tmp4 = _mm_set_ps1(0.0f);
+		tmp5 = _mm_set_ps1(0.0f);
+		tmp6 = _mm_set_ps1(0.0f);
+		tmp7 = _mm_set_ps1(0.0f);
+		tmp8 = _mm_set_ps1(0.0f);
+
+		for (size_t j = 0; j < block_count; j++)
+		{
+			//load weights
+			weight = _mm_cvtepi32_ps(_mm_shuffle_epi32(_mm_cvtsi32_si128(weights[j]), 0));
+
+			//load data
+			xmm0 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i)), shuf1));
+			xmm1 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 4)), shuf1));
+			xmm2 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 8)), shuf1));
+			xmm3 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 12)), shuf1));
+			xmm4 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 16)), shuf1));
+			xmm5 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 20)), shuf1));
+			xmm6 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 24)), shuf1));
+			xmm7 = _mm_cvtepi32_ps(_mm_shuffle_epi8(_mm_cvtsi32_si128(*(int32_t*)(blocks[j] + i + 28)), shuf1));
+
+			tmp1 = _mm_fmadd_ps(xmm0, weight, tmp1);
+			tmp2 = _mm_fmadd_ps(xmm1, weight, tmp2);
+			tmp3 = _mm_fmadd_ps(xmm2, weight, tmp3);
+			tmp4 = _mm_fmadd_ps(xmm3, weight, tmp4);
+			tmp5 = _mm_fmadd_ps(xmm4, weight, tmp5);
+			tmp6 = _mm_fmadd_ps(xmm5, weight, tmp6);
+			tmp7 = _mm_fmadd_ps(xmm6, weight, tmp7);
+			tmp8 = _mm_fmadd_ps(xmm7, weight, tmp8);
+		}
+
+		//division
+
+		tmp1 = _mm_mul_ps(tmp1, div);
+		tmp2 = _mm_mul_ps(tmp2, div);
+		tmp3 = _mm_mul_ps(tmp3, div);
+		tmp4 = _mm_mul_ps(tmp4, div);
+		tmp5 = _mm_mul_ps(tmp5, div);
+		tmp6 = _mm_mul_ps(tmp6, div);
+		tmp7 = _mm_mul_ps(tmp7, div);
+		tmp8 = _mm_mul_ps(tmp8, div);
+
+		tmp1 = _mm_floor_ps(tmp1);
+		tmp2 = _mm_floor_ps(tmp2);
+		tmp3 = _mm_floor_ps(tmp3);
+		tmp4 = _mm_floor_ps(tmp4);
+		tmp5 = _mm_floor_ps(tmp5);
+		tmp6 = _mm_floor_ps(tmp6);
+		tmp7 = _mm_floor_ps(tmp7);
+		tmp8 = _mm_floor_ps(tmp8);
+
+		tmpi1 = _mm_cvtps_epi32(tmp1);
+		tmpi2 = _mm_cvtps_epi32(tmp2);
+		tmpi3 = _mm_cvtps_epi32(tmp3);
+		tmpi4 = _mm_cvtps_epi32(tmp4);
+		tmpi5 = _mm_cvtps_epi32(tmp5);
+		tmpi6 = _mm_cvtps_epi32(tmp6);
+		tmpi7 = _mm_cvtps_epi32(tmp7);
+		tmpi8 = _mm_cvtps_epi32(tmp8);
+
+		//store
+
+		tmpi1 = _mm_shuffle_epi8(tmpi1, shuf2);
+		tmpi2 = _mm_shuffle_epi8(tmpi2, shuf3);
+		tmpi3 = _mm_shuffle_epi8(tmpi3, shuf4);
+		tmpi4 = _mm_shuffle_epi8(tmpi4, shuf5);
+		tmpi5 = _mm_shuffle_epi8(tmpi5, shuf2);
+		tmpi6 = _mm_shuffle_epi8(tmpi6, shuf3);
+		tmpi7 = _mm_shuffle_epi8(tmpi7, shuf4);
+		tmpi8 = _mm_shuffle_epi8(tmpi8, shuf5);
+
+		tmpi1 = _mm_or_si128(tmpi1, tmpi2);
+		tmpi3 = _mm_or_si128(tmpi3, tmpi4);
+		tmpi5 = _mm_or_si128(tmpi5, tmpi6);
+		tmpi7 = _mm_or_si128(tmpi7, tmpi8);
+
+		tmpi1 = _mm_or_si128(tmpi1, tmpi3);
+		tmpi5 = _mm_or_si128(tmpi5, tmpi7);
+
+		_mm_stream_si128((__m128i*)(result + i), tmpi1);
+		_mm_stream_si128((__m128i*)(result + i + 16), tmpi5);
+	}
+
+	//last elements
+
+	for (; i < block_element_count; i++)
+	{
+		tmp = 0.0f;
+
+		for (size_t j = 0; j < block_count; j++)
+		{
+			tmp += (float)blocks[j][i] * weights[j];
+		}
+
+		result[i] = (uint8_t)(tmp * total_weights);
+	}
+	
+	_mm_sfence();
 }
 
 AVX2_TARGET void weightedmean_u8_i32_avx2_shift(uint8_t** blocks, int32_t* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result)
@@ -1317,6 +1615,8 @@ AVX2_TARGET void weightedmean_u8_i32_avx2_nt_shift(uint8_t** blocks, int32_t* we
 
 		result[i] = (uint8_t)(tmp >> shift);
 	}
+	
+	_mm_sfence();
 }
 
 AVX2_TARGET void weightedmean_u8_f32_avx2(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result)
@@ -1721,6 +2021,396 @@ AVX2_TARGET void weightedmean_u8_f32_avx2_nt(uint8_t** blocks, float* weights, u
 
 		result[i] = (uint8_t)(tmp * total_weights);
 	}
+	
+	_mm_sfence();
+}
+
+FMA_AVX2_TARGET void weightedmean_u8_f32_fma_avx2(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result)
+{
+	float total_weights = 0;
+	for (size_t i = 0; i < block_count; i++)
+		total_weights += weights[i];
+
+	__m256i shuf1, shuf2, shuf3, shuf4, shuf5;
+	__m256i perm;
+	__m256 div;
+	__m256 weight;
+	__m256 tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
+	__m256i tmpi1, tmpi2, tmpi3, tmpi4, tmpi5, tmpi6, tmpi7, tmpi8;
+	__m256 xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7;
+
+	total_weights = 1.0f / total_weights;
+
+	div = _mm256_broadcast_ss(&total_weights);
+
+	static int8_t unpack[] = {
+		0, -1, -1, -1,
+		1, -1, -1, -1,
+		2, -1, -1, -1,
+		3, -1, -1, -1,
+		4, -1, -1, -1,
+		5, -1, -1, -1,
+		6, -1, -1, -1,
+		7, -1, -1, -1
+	};
+	shuf1 = _mm256_lddqu_si256((__m256i*)unpack);
+	static int8_t pack[] = {
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1
+	};
+	shuf2 = _mm256_lddqu_si256((__m256i*)pack);
+	static int8_t pack1[] = {
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1
+	};
+	shuf3 = _mm256_lddqu_si256((__m256i*)pack1);
+	static int8_t pack2[] = {
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1
+	};
+	shuf4 = _mm256_lddqu_si256((__m256i*)pack2);
+	static int8_t pack3[] = {
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12
+	};
+	shuf5 = _mm256_lddqu_si256((__m256i*)pack3);
+	static int32_t pack4[] = {
+		0, 4, 1, 5, 2, 6, 3, 7
+	};
+	perm = _mm256_lddqu_si256((__m256i*)pack4);
+
+	for (size_t i = 0; i < (block_element_count & 0xffffffffffffffc0); i += 64)
+	{
+		float nul = 0.0f;
+		tmp1 = _mm256_broadcast_ss(&nul);
+		tmp2 = _mm256_broadcast_ss(&nul);
+		tmp3 = _mm256_broadcast_ss(&nul);
+		tmp4 = _mm256_broadcast_ss(&nul);
+		tmp5 = _mm256_broadcast_ss(&nul);
+		tmp6 = _mm256_broadcast_ss(&nul);
+		tmp7 = _mm256_broadcast_ss(&nul);
+		tmp8 = _mm256_broadcast_ss(&nul);
+
+		for (size_t j = 0; j < block_count; j++)
+		{
+			//load weights
+			weight = _mm256_broadcast_ss((float*)(weights + j));
+
+			//load data
+			xmm0 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i))), shuf1));
+			xmm1 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 8))), shuf1));
+			xmm2 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 16))), shuf1));
+			xmm3 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 24))), shuf1));
+			xmm4 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 32))), shuf1));
+			xmm5 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 40))), shuf1));
+			xmm6 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 48))), shuf1));
+			xmm7 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 56))), shuf1));
+
+			tmp1 = _mm256_fmadd_ps(xmm0, weight, tmp1);
+			tmp2 = _mm256_fmadd_ps(xmm1, weight, tmp2);
+			tmp3 = _mm256_fmadd_ps(xmm2, weight, tmp3);
+			tmp4 = _mm256_fmadd_ps(xmm3, weight, tmp4);
+			tmp5 = _mm256_fmadd_ps(xmm4, weight, tmp5);
+			tmp6 = _mm256_fmadd_ps(xmm5, weight, tmp6);
+			tmp7 = _mm256_fmadd_ps(xmm6, weight, tmp7);
+			tmp8 = _mm256_fmadd_ps(xmm7, weight, tmp8);
+		}
+
+		//division
+		tmp1 = _mm256_mul_ps(tmp1, div);
+		tmp2 = _mm256_mul_ps(tmp2, div);
+		tmp3 = _mm256_mul_ps(tmp3, div);
+		tmp4 = _mm256_mul_ps(tmp4, div);
+		tmp5 = _mm256_mul_ps(tmp5, div);
+		tmp6 = _mm256_mul_ps(tmp6, div);
+		tmp7 = _mm256_mul_ps(tmp7, div);
+		tmp8 = _mm256_mul_ps(tmp8, div);
+
+		tmp1 = _mm256_floor_ps(tmp1);
+		tmp2 = _mm256_floor_ps(tmp2);
+		tmp3 = _mm256_floor_ps(tmp3);
+		tmp4 = _mm256_floor_ps(tmp4);
+		tmp5 = _mm256_floor_ps(tmp5);
+		tmp6 = _mm256_floor_ps(tmp6);
+		tmp7 = _mm256_floor_ps(tmp7);
+		tmp8 = _mm256_floor_ps(tmp8);
+
+		tmpi1 = _mm256_cvtps_epi32(tmp1);
+		tmpi2 = _mm256_cvtps_epi32(tmp2);
+		tmpi3 = _mm256_cvtps_epi32(tmp3);
+		tmpi4 = _mm256_cvtps_epi32(tmp4);
+		tmpi5 = _mm256_cvtps_epi32(tmp5);
+		tmpi6 = _mm256_cvtps_epi32(tmp6);
+		tmpi7 = _mm256_cvtps_epi32(tmp7);
+		tmpi8 = _mm256_cvtps_epi32(tmp8);
+
+		//store 
+		tmpi1 = _mm256_shuffle_epi8(tmpi1, shuf2);
+		tmpi2 = _mm256_shuffle_epi8(tmpi2, shuf3);
+		tmpi3 = _mm256_shuffle_epi8(tmpi3, shuf4);
+		tmpi4 = _mm256_shuffle_epi8(tmpi4, shuf5);
+		tmpi5 = _mm256_shuffle_epi8(tmpi5, shuf2);
+		tmpi6 = _mm256_shuffle_epi8(tmpi6, shuf3);
+		tmpi7 = _mm256_shuffle_epi8(tmpi7, shuf4);
+		tmpi8 = _mm256_shuffle_epi8(tmpi8, shuf5);
+
+		tmpi1 = _mm256_or_si256(tmpi1, tmpi2);
+		tmpi3 = _mm256_or_si256(tmpi3, tmpi4);
+		tmpi5 = _mm256_or_si256(tmpi5, tmpi6);
+		tmpi7 = _mm256_or_si256(tmpi7, tmpi8);
+
+		tmpi1 = _mm256_or_si256(tmpi1, tmpi3);
+		tmpi5 = _mm256_or_si256(tmpi5, tmpi7);
+
+		tmpi1 = _mm256_permutevar8x32_epi32(tmpi1, perm);
+		tmpi5 = _mm256_permutevar8x32_epi32(tmpi5, perm);
+
+		_mm256_storeu_si256((__m256i*)(result + i), tmpi1);
+		_mm256_storeu_si256((__m256i*)(result + i + 32), tmpi5);
+	}
+
+	float tmp;
+
+	//last elements
+	
+	for (size_t i = block_element_count & 0xffffffffffffffc0; i < block_element_count; i++)
+	{
+		tmp = 0.0f;
+
+		for (size_t j = 0; j < block_count; j++)
+		{
+			tmp += (float)blocks[j][i] * weights[j];
+		}
+
+		result[i] = (uint8_t)(tmp * total_weights);
+	}
+}
+
+FMA_AVX2_TARGET void weightedmean_u8_f32_fma_avx2_nt(uint8_t** blocks, float* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result)
+{
+	float total_weights = 0;
+	for (size_t i = 0; i < block_count; i++)
+		total_weights += weights[i];
+
+	__m256i shuf1, shuf2, shuf3, shuf4, shuf5;
+	__m256i perm;
+	__m256 div;
+	__m256 weight;
+	__m256 tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7, tmp8;
+	__m256i tmpi1, tmpi2, tmpi3, tmpi4, tmpi5, tmpi6, tmpi7, tmpi8;
+	__m256 xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7;
+
+	total_weights = 1.0f / total_weights;
+
+	div = _mm256_broadcast_ss(&total_weights);
+
+	static int8_t unpack[] = {
+		0, -1, -1, -1,
+		1, -1, -1, -1,
+		2, -1, -1, -1,
+		3, -1, -1, -1,
+		4, -1, -1, -1,
+		5, -1, -1, -1,
+		6, -1, -1, -1,
+		7, -1, -1, -1
+	};
+	shuf1 = _mm256_lddqu_si256((__m256i*)unpack);
+	static int8_t pack[] = {
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1
+	};
+	shuf2 = _mm256_lddqu_si256((__m256i*)pack);
+	static int8_t pack1[] = {
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1
+	};
+	shuf3 = _mm256_lddqu_si256((__m256i*)pack1);
+	static int8_t pack2[] = {
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1
+	};
+	shuf4 = _mm256_lddqu_si256((__m256i*)pack2);
+	static int8_t pack3[] = {
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		-1, -1, -1, -1,
+		0, 4, 8, 12
+	};
+	shuf5 = _mm256_lddqu_si256((__m256i*)pack3);
+	static int32_t pack4[] = {
+		0, 4, 1, 5, 2, 6, 3, 7
+	};
+	perm = _mm256_lddqu_si256((__m256i*)pack4);
+
+	// align 32
+
+	float tmp;
+
+	size_t i;
+
+	for (i = 0; i < (32 - ((size_t)result & 31)); i++)
+	{
+		tmp = 0.0f;
+
+		for (size_t j = 0; j < block_count; j++)
+		{
+			tmp += (float)blocks[j][i] * weights[j];
+		}
+
+		result[i] = (uint8_t)(tmp * total_weights);
+	}
+
+	for (; i < ((block_element_count - (32 - ((size_t)result & 31))) & 0xffffffffffffffc0); i += 64)
+	{
+		float nul = 0.0f;
+		tmp1 = _mm256_broadcast_ss(&nul);
+		tmp2 = _mm256_broadcast_ss(&nul);
+		tmp3 = _mm256_broadcast_ss(&nul);
+		tmp4 = _mm256_broadcast_ss(&nul);
+		tmp5 = _mm256_broadcast_ss(&nul);
+		tmp6 = _mm256_broadcast_ss(&nul);
+		tmp7 = _mm256_broadcast_ss(&nul);
+		tmp8 = _mm256_broadcast_ss(&nul);
+
+		for (size_t j = 0; j < block_count; j++)
+		{
+			//load weights
+			weight = _mm256_broadcast_ss((float*)(weights + j));
+
+			//load data
+			xmm0 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i))), shuf1));
+			xmm1 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 8))), shuf1));
+			xmm2 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 16))), shuf1));
+			xmm3 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 24))), shuf1));
+			xmm4 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 32))), shuf1));
+			xmm5 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 40))), shuf1));
+			xmm6 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 48))), shuf1));
+			xmm7 = _mm256_cvtepi32_ps(_mm256_shuffle_epi8(_mm256_castpd_si256(_mm256_broadcast_sd((double*)(blocks[j] + i + 56))), shuf1));
+
+			tmp1 = _mm256_fmadd_ps(xmm0, weight, tmp1);
+			tmp2 = _mm256_fmadd_ps(xmm1, weight, tmp2);
+			tmp3 = _mm256_fmadd_ps(xmm2, weight, tmp3);
+			tmp4 = _mm256_fmadd_ps(xmm3, weight, tmp4);
+			tmp5 = _mm256_fmadd_ps(xmm4, weight, tmp5);
+			tmp6 = _mm256_fmadd_ps(xmm5, weight, tmp6);
+			tmp7 = _mm256_fmadd_ps(xmm6, weight, tmp7);
+			tmp8 = _mm256_fmadd_ps(xmm7, weight, tmp8);
+		}
+
+		//division
+		tmp1 = _mm256_mul_ps(tmp1, div);
+		tmp2 = _mm256_mul_ps(tmp2, div);
+		tmp3 = _mm256_mul_ps(tmp3, div);
+		tmp4 = _mm256_mul_ps(tmp4, div);
+		tmp5 = _mm256_mul_ps(tmp5, div);
+		tmp6 = _mm256_mul_ps(tmp6, div);
+		tmp7 = _mm256_mul_ps(tmp7, div);
+		tmp8 = _mm256_mul_ps(tmp8, div);
+
+		tmp1 = _mm256_floor_ps(tmp1);
+		tmp2 = _mm256_floor_ps(tmp2);
+		tmp3 = _mm256_floor_ps(tmp3);
+		tmp4 = _mm256_floor_ps(tmp4);
+		tmp5 = _mm256_floor_ps(tmp5);
+		tmp6 = _mm256_floor_ps(tmp6);
+		tmp7 = _mm256_floor_ps(tmp7);
+		tmp8 = _mm256_floor_ps(tmp8);
+
+		tmpi1 = _mm256_cvtps_epi32(tmp1);
+		tmpi2 = _mm256_cvtps_epi32(tmp2);
+		tmpi3 = _mm256_cvtps_epi32(tmp3);
+		tmpi4 = _mm256_cvtps_epi32(tmp4);
+		tmpi5 = _mm256_cvtps_epi32(tmp5);
+		tmpi6 = _mm256_cvtps_epi32(tmp6);
+		tmpi7 = _mm256_cvtps_epi32(tmp7);
+		tmpi8 = _mm256_cvtps_epi32(tmp8);
+
+		//store 
+		tmpi1 = _mm256_shuffle_epi8(tmpi1, shuf2);
+		tmpi2 = _mm256_shuffle_epi8(tmpi2, shuf3);
+		tmpi3 = _mm256_shuffle_epi8(tmpi3, shuf4);
+		tmpi4 = _mm256_shuffle_epi8(tmpi4, shuf5);
+		tmpi5 = _mm256_shuffle_epi8(tmpi5, shuf2);
+		tmpi6 = _mm256_shuffle_epi8(tmpi6, shuf3);
+		tmpi7 = _mm256_shuffle_epi8(tmpi7, shuf4);
+		tmpi8 = _mm256_shuffle_epi8(tmpi8, shuf5);
+
+		tmpi1 = _mm256_or_si256(tmpi1, tmpi2);
+		tmpi3 = _mm256_or_si256(tmpi3, tmpi4);
+		tmpi5 = _mm256_or_si256(tmpi5, tmpi6);
+		tmpi7 = _mm256_or_si256(tmpi7, tmpi8);
+
+		tmpi1 = _mm256_or_si256(tmpi1, tmpi3);
+		tmpi5 = _mm256_or_si256(tmpi5, tmpi7);
+
+		tmpi1 = _mm256_permutevar8x32_epi32(tmpi1, perm);
+		tmpi5 = _mm256_permutevar8x32_epi32(tmpi5, perm);
+
+		_mm256_stream_si256((__m256i*)(result + i), tmpi1);
+		_mm256_stream_si256((__m256i*)(result + i + 32), tmpi5);
+	}
+
+	//last elements
+
+	for (; i < block_element_count; i++)
+	{
+		tmp = 0.0f;
+
+		for (size_t j = 0; j < block_count; j++)
+		{
+			tmp += (float)blocks[j][i] * weights[j];
+		}
+
+		result[i] = (uint8_t)(tmp * total_weights);
+	}
+	
+	_mm_sfence();
 }
 
 #endif // x86
