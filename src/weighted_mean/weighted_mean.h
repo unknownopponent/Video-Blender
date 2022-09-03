@@ -9,7 +9,7 @@ void weightedmean_u8_i64(uint8_t** blocks, int64_t* weights, uint64_t block_coun
 void weightedmean_u8_f64(uint8_t** blocks, double* weights, uint64_t block_count, uint64_t block_element_count, uint8_t* result);
 
 
-#include "x86.h"
+#include "../x86.h"
 
 #if defined(X86_32) || defined(X86_64)
 

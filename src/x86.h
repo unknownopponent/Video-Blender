@@ -8,13 +8,14 @@
 
 #ifdef __GNUC__
 #define SSE2_TARGET __attribute__ ((__target__ ("sse2")))
+#define SSSE3_TARGET __attribute__ ((__target__ ("ssse3")))
 #define SSE41_TARGET __attribute__ ((__target__ ("sse4.1")))
 #define AVX2_TARGET __attribute__ ((__target__ ("avx2")))
 #define FMA_TARGET __attribute__ ((__target__ ("fma")))
 #define FMA_AVX2_TARGET __attribute__ ((__target__ ("fma,avx2")))
 #else
 #define SSE2_TARGET 
-#define SSE3_TARGET
+#define SSSE3_TARGET
 #define SSE41_TARGET
 #define AVX2_TARGET
 #define FMA_TARGET

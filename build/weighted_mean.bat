@@ -1,9 +1,9 @@
 @echo off
 
 gcc ^
-	-I ../src/*.h ^
-	../src/*.c ^
-	../test/test.c ^
+	-I ../src/weighted_mean ^
+	../src/weighted_mean/*.c ^
+	../test/weighted_mean_test.c ^
 	-o test.exe ^
 	-O3
 

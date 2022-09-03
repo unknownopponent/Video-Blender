@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../src/weighted_mean.h"
+#include "../src/weighted_mean/weighted_mean.h"
 
 char test()
 {
